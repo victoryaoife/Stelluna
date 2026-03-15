@@ -47,7 +47,7 @@ html, body {
 }
 .msg {
   display:flex; flex-direction:column; margin-bottom:12px;
-  max-width:88%; animation: fadeIn 0.2s ease;
+  max-width:100%; animation: fadeIn 0.2s ease;
 }
 @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 .msg.user { align-self:flex-end; align-items:flex-end; }
@@ -57,12 +57,12 @@ html, body {
   font-size:15px; line-height:1.6; word-break:break-word;
 }
 .msg.user .msg-bubble {
-  color:#3A4F7A
+  color: #3A4F7A
   background:var(--user-bg);
   border-bottom-right-radius:4px;
 }
 .msg.ai .msg-bubble {
-  color:#3A4F7A
+  color: #3A4F7A
   background:var(--ai-bg);
   border-bottom-left-radius:4px;
 }
