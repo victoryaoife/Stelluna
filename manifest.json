@@ -2,7 +2,7 @@
   "name": "星月栖",
   "short_name": "星月栖",
   "description": "Stelluna·听月与星语的星月栖",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0f0f1a",
   "theme_color": "#0f0f1a",
