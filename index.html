@@ -468,6 +468,8 @@ html, body {
   <!-- ====== Input Area ====== -->
   <div id="input-area">
     <button id="img-btn" onclick="document.getElementById('img-input').click()" title="发送图片">🖼</button>
+    <button id="file-btn" onclick="document.getElementById('file-input').click()" title="发送文件" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:6px;">📎</button>
+<input type="file" id="file-input" accept=".txt,.js,.py,.html,.css,.json,.md,.csv,.xml,.yaml,.yml,.toml,.log,.sql,.sh,.ts,.jsx,.tsx,.vue,.svelte,.go,.rs,.java,.c,.cpp,.h,.rb,.php,.swift,.kt" style="display:none;" onchange="handleFileSelect(event)">
     <input type="file" id="img-input" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
     <textarea id="input" rows="1" placeholder="说点什么..."
       oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
@@ -555,7 +557,7 @@ html, body {
   <div class="setting-group">
     <label>上下文轮数</label>
     <div class="slider-group">
-      <input type="range" id="s-context" min="1" max="100" value="20" oninput="document.getElementById('ctx-val').textContent=this.value">
+      <input type="range" id="s-context" min="1" max="300" value="100" oninput="document.getElementById('ctx-val').textContent=this.value">
       <span id="ctx-val" class="slider-value">20</span>
     </div>
   </div>
@@ -1220,6 +1222,31 @@ function removeImage() {
   document.getElementById('img-preview').style.display = 'none';
   document.getElementById('img-preview-src').src = '';
 }
+  
+// ====== 文件处理 ======
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (file.size > 500 * 1024) {
+    alert('文件太大了（超过500KB），建议截取关键部分粘贴');
+    event.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const content = e.target.result;
+    const input = document.getElementById('input');
+    const fileBlock = `📎 ${file.name}\n\`\`\`\n${content}\n\`\`\``;
+    input.value = input.value ? input.value + '\n\n' + fileBlock : fileBlock;
+    autoResize(input);
+    input.focus();
+    showStatus('文件已读取：' + file.name + ' ✓');
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
 
 // ====== 输入 ======
 function autoResize(el) {
@@ -1720,6 +1747,9 @@ async function loadMemoryTab() {
         <div class="memory-card">
           <h4>📅 ${escapeHtml(d.date)}${d.period_status ? ' · ' + escapeHtml(d.period_status) : ''}</h4>
           <p>${escapeHtml(d.content).replace(/\n/g, '<br>')}</p>
+          <div class="card-actions">
+            <button class="small-btn" onclick="editDiary('${d.date}')">编辑</button>
+          </div>
         </div>
       `).join('');
 
@@ -1828,6 +1858,97 @@ async function deleteMemory(id) {
     }
   } catch (e) {
     showStatus('删除失败：' + e.message);
+  }
+}
+// ====== 日记编辑 ======
+async function editDiary(date) {
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
+
+  // 先拉取完整内容
+  try {
+    const res = await fetch(gateway + '/api/memory/diaries/' + date);
+    const diary = await res.json();
+    if (!diary || !diary.content) {
+      showStatus('未找到该日记');
+      return;
+    }
+
+    // 用textarea弹窗编辑（prompt太小放不下长文本，用自定义弹窗）
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const editor = document.createElement('div');
+    editor.style.cssText = 'background:var(--surface);border-radius:14px;padding:20px;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;gap:12px;';
+
+    const title = document.createElement('h3');
+    title.textContent = '📅 编辑日记：' + date;
+    title.style.cssText = 'font-size:16px;color:var(--text);';
+
+    const periodRow = document.createElement('div');
+    periodRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    const periodLabel = document.createElement('label');
+    periodLabel.textContent = '经期状态：';
+    periodLabel.style.cssText = 'font-size:13px;color:var(--text2);white-space:nowrap;';
+    const periodInput = document.createElement('input');
+    periodInput.value = diary.period_status || '';
+    periodInput.placeholder = '留空则无';
+    periodInput.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;outline:none;';
+    periodRow.appendChild(periodLabel);
+    periodRow.appendChild(periodInput);
+
+    const textarea = document.createElement('textarea');
+    textarea.value = diary.content;
+    textarea.style.cssText = 'flex:1;min-height:300px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:10px;font-size:14px;line-height:1.6;resize:vertical;outline:none;font-family:inherit;';
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '保存';
+    saveBtn.style.cssText = 'background:var(--accent);color:white;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:14px;';
+    saveBtn.onclick = async () => {
+      const updates = { content: textarea.value };
+      const newPeriod = periodInput.value.trim();
+      if (newPeriod !== (diary.period_status || '')) {
+        updates.period_status = newPeriod || null;
+      }
+      try {
+        const patchRes = await fetch(gateway + '/api/memory/diaries/' + date, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        const result = await patchRes.json();
+        if (result.success) {
+          showStatus('日记更新成功 ✓');
+          overlay.remove();
+          loadMemoryTab();
+        } else {
+          showStatus('更新失败');
+        }
+      } catch (e) {
+        showStatus('更新失败：' + e.message);
+      }
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.style.cssText = 'background:var(--surface2);color:var(--text2);border:1px solid var(--border);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:14px;';
+    cancelBtn.onclick = () => overlay.remove();
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(saveBtn);
+
+    editor.appendChild(title);
+    editor.appendChild(periodRow);
+    editor.appendChild(textarea);
+    editor.appendChild(btnRow);
+    overlay.appendChild(editor);
+    document.body.appendChild(overlay);
+
+  } catch (e) {
+    showStatus('加载日记失败：' + e.message);
   }
 }
 
