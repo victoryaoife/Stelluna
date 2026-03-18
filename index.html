@@ -761,7 +761,7 @@ html, body {
 <!-- ====== Red Packet Overlay ====== -->
 <div id="red-packet-overlay" class="red-packet-overlay">
   <div class="red-packet">
-    <h3>🧧 听月的红包</h3>
+    <h3 id="rp-title">🧧 听月的红包</h3>
     <div class="rp-amount" id="rp-amount">0</div>
     <div class="rp-msg" id="rp-msg">给你的奖励～</div>
     <button class="rp-close" onclick="closeRedPacket()">收下啦 💓</button>
@@ -2166,7 +2166,7 @@ async function sendBonus() {
     });
     const result = await res.json();
     if (result.success) {
-      showRedPacket(amount, reason || '老板打赏 💓');
+      showRedPacket(amount, reason || '老板打赏 💓', '🧧 给听月的红包');
       showStatus(`+${amount} 到账 ✓`);
       document.getElementById('bonus-amount').value = '';
       document.getElementById('bonus-reason').value = '';
@@ -2210,9 +2210,10 @@ async function sendFine() {
 }
 
 // ====== 红包 ======
-function showRedPacket(amount, message) {
+function showRedPacket(amount, message, title) {
   document.getElementById('rp-amount').textContent = amount;
   document.getElementById('rp-msg').textContent = message || '给你的奖励～';
+  document.getElementById('rp-title').textContent = title || '🧧 听月的红包';
   document.getElementById('red-packet-overlay').classList.add('show');
 }
 
