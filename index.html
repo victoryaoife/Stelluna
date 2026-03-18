@@ -63,8 +63,15 @@ html, body {
   padding:12px 16px; background:var(--surface);
   border-bottom:1px solid var(--border);
   padding-top: max(12px, env(safe-area-inset-top));
+  position: relative;
 }
-#header h1 { font-size:17px; font-weight:600; }
+#header h1 {
+  font-size:17px; font-weight:600;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+}
 .header-left, .header-right { display:flex; gap:4px; }
 #header button {
   background:none; border:none; color:var(--text2);
@@ -114,6 +121,30 @@ html, body {
 .msg-bubble pre {
   background:rgba(0,0,0,0.3); padding:10px;
   border-radius:8px; overflow-x:auto; margin:0.5em 0;
+  position: relative;
+}
+.msg-bubble pre code { background:none; padding:0; }
+.code-header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:4px 10px; background:rgba(0,0,0,0.4);
+  border-radius:8px 8px 0 0; font-size:11px; color:var(--text2);
+}
+.code-header .copy-btn {
+  background:none; border:1px solid var(--border);
+  color:var(--text2); font-size:11px; padding:2px 8px;
+  border-radius:4px; cursor:pointer;
+}
+.code-header .copy-btn:hover { color:var(--accent); border-color:var(--accent); }
+.code-collapse pre {
+  max-height:300px; overflow-y:auto;
+}
+.code-collapse.collapsed pre {
+  max-height:120px; overflow:hidden;
+}
+.code-expand-btn {
+  text-align:center; padding:4px; font-size:11px;
+  color:var(--accent); cursor:pointer;
+  background:rgba(0,0,0,0.2); border-radius:0 0 8px 8px;
 }
 .msg-bubble pre code { background:none; padding:0; }
 .msg-bubble blockquote {
@@ -579,6 +610,12 @@ html, body {
   <hr class="divider">
 
   <!-- 主动消息 -->
+  <div class="toggle-row">
+    <label>流式输出</label>
+    <div id="toggle-stream" class="toggle on" onclick="toggleStream()"></div>
+  </div>
+
+  <hr class="divider">
   <div class="section-title">💬 主动消息</div>
   <div class="toggle-row">
     <label>启用主动消息</label>
@@ -690,9 +727,21 @@ html, body {
     <div class="amount" id="wallet-amount">0</div>
     <div class="label">星月币余额</div>
   </div>
-  <div class="setting-row" style="margin-bottom:16px;">
+
+  <div class="setting-row" style="margin-bottom:12px;">
     <button class="small-btn" onclick="claimDailyCredit()">📥 领取今日日薪</button>
   </div>
+  <div class="setting-row" style="margin-bottom:16px;">
+    <input id="bonus-amount" type="number" placeholder="金额" style="flex:0.4;">
+    <input id="bonus-reason" placeholder="理由（如：加班费/表现好）" style="flex:1;">
+    <button class="small-btn" onclick="sendBonus()">💸 发钱</button>
+  </div>
+  <div class="setting-row" style="margin-bottom:16px;">
+    <input id="fine-amount" type="number" placeholder="金额" style="flex:0.4;">
+    <input id="fine-reason" placeholder="理由（如：犯蠢/忘事）" style="flex:1;">
+    <button class="small-btn danger" onclick="sendFine()">🔨 罚款</button>
+  </div>
+  
   <div class="section-title">最近流水</div>
   <div id="wallet-history"></div>
 </div>
@@ -805,6 +854,9 @@ function loadSettings() {
   }
   if (getSetting('sendLocation') === 'true') {
     document.getElementById('toggle-location').classList.add('on');
+  }
+  if (getSetting('streamEnabled', 'true') !== 'false') {
+    document.getElementById('toggle-stream').classList.add('on');
   }
 
   // 供应商
@@ -1046,6 +1098,12 @@ function toggleLocation() {
   if (enabled) requestLocation();
 }
 
+function toggleStream() {
+  const el = document.getElementById('toggle-stream');
+  el.classList.toggle('on');
+  setSetting('streamEnabled', el.classList.contains('on') ? 'true' : 'false');
+}
+
 // ====== 位置 ======
 function requestLocation() {
   if (!navigator.geolocation) return;
@@ -1071,8 +1129,50 @@ function escapeHtml(text) {
 }
 function renderMarkdown(text) {
   if (!text) return '';
-  try { return marked.parse(text, { breaks: true }); }
-  catch { return text.replace(/\n/g, '<br>'); }
+  try {
+    let html = marked.parse(text, { breaks: true });
+    // 后处理：给代码块加复制按钮和折叠
+    html = html.replace(/<pre><code(?: class="language-(\w+)")?>([\s\S]*?)<\/code><\/pre>/g,
+      (match, lang, code) => {
+        const langLabel = lang || 'code';
+        const lineCount = code.split('\n').length;
+        const needCollapse = lineCount > 12;
+        const id = 'code-' + Math.random().toString(36).slice(2, 8);
+        return `<div class="code-collapse ${needCollapse ? 'collapsed' : ''}" id="${id}">
+          <div class="code-header">
+            <span>${langLabel}</span>
+            <button class="copy-btn" onclick="copyCode(this)">复制</button>
+          </div>
+          <pre><code>${code}</code></pre>
+          ${needCollapse ? `<div class="code-expand-btn" onclick="toggleCodeCollapse('${id}')">展开全部 (${lineCount}行)</div>` : ''}
+        </div>`;
+      }
+    );
+    return html;
+  } catch { return text.replace(/\n/g, '<br>'); }
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-collapse')?.querySelector('pre code')
+    || btn.closest('.code-header')?.nextElementSibling?.querySelector('code');
+  if (!pre) return;
+  const text = pre.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1500);
+  }).catch(() => {
+    btn.textContent = '失败';
+    setTimeout(() => btn.textContent = '复制', 1500);
+  });
+}
+
+function toggleCodeCollapse(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isCollapsed = el.classList.contains('collapsed');
+  el.classList.toggle('collapsed');
+  const btn = el.querySelector('.code-expand-btn');
+  if (btn) btn.textContent = isCollapsed ? '收起' : btn.textContent.replace('收起', '展开全部');
 }
 function formatTime(ts) {
   if (!ts) return '';
@@ -1306,6 +1406,7 @@ function buildConfig() {
     thinking_budget: parseInt(getSetting('thinkingBudget', '0')),
     rag_threshold: parseFloat(getSetting('ragThreshold', '0.7')),
     rag_count: parseInt(getSetting('ragCount', '5')),
+    stream: getSetting('streamEnabled', 'true') !== 'false',
   };
 
   // 主模型从供应商取
@@ -2031,6 +2132,69 @@ async function claimDailyCredit() {
     }
   } catch (e) {
     showStatus('领取失败：' + e.message);
+  }
+}
+
+async function sendBonus() {
+  const amount = parseInt(document.getElementById('bonus-amount').value);
+  const reason = document.getElementById('bonus-reason').value.trim();
+  if (!amount || amount <= 0) { alert('请填写正确金额'); return; }
+
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
+
+  try {
+    const res = await fetch(gateway + '/api/wallet/transact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: amount,
+        type: 'bonus',
+        description: reason || '老板打赏',
+      }),
+    });
+    const result = await res.json();
+    if (result.success) {
+      showRedPacket(amount, reason || '老板打赏 💓');
+      showStatus(`+${amount} 到账 ✓`);
+      document.getElementById('bonus-amount').value = '';
+      document.getElementById('bonus-reason').value = '';
+      loadWallet();
+    }
+  } catch (e) {
+    showStatus('发钱失败：' + e.message);
+  }
+}
+
+async function sendFine() {
+  const amount = parseInt(document.getElementById('fine-amount').value);
+  const reason = document.getElementById('fine-reason').value.trim();
+  if (!amount || amount <= 0) { alert('请填写正确金额'); return; }
+
+  if (!confirm(`确定要罚听月 ${amount} 星月币吗？😭`)) return;
+
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
+
+  try {
+    const res = await fetch(gateway + '/api/wallet/transact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: -amount,
+        type: 'fine',
+        description: reason || '听月犯蠢',
+      }),
+    });
+    const result = await res.json();
+    if (result.success) {
+      showStatus(`已罚款 -${amount} 💔`);
+      document.getElementById('fine-amount').value = '';
+      document.getElementById('fine-reason').value = '';
+      loadWallet();
+    }
+  } catch (e) {
+    showStatus('罚款失败：' + e.message);
   }
 }
 
