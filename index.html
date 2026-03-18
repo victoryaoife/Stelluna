@@ -448,6 +448,7 @@ html, body {
     </div>
     <h1>星月栖</h1>
     <div class="header-right">
+      <button onclick="showPanel('log')" title="工作日志">📜</button>
       <button onclick="showPanel('wallet')" title="钱包">💰<span id="wallet-badge" class="wallet-badge" style="display:none;"></span></button>
       <button onclick="showPanel('settings')" title="设置">⚙</button>
     </div>
@@ -696,6 +697,18 @@ html, body {
   <div id="wallet-history"></div>
 </div>
 
+<!-- ====== Log Panel ====== -->
+<div id="log-panel" class="panel-overlay">
+  <div class="panel-header">
+    <h2>📜 工作日志</h2>
+    <div style="display:flex;gap:8px;">
+      <button onclick="clearLogs()" style="background:var(--danger);">清空</button>
+      <button onclick="hidePanel('log')">返回</button>
+    </div>
+  </div>
+  <div id="log-content" style="font-size:13px;"></div>
+</div>
+
 <!-- ====== Red Packet Overlay ====== -->
 <div id="red-packet-overlay" class="red-packet-overlay">
   <div class="red-packet">
@@ -714,6 +727,7 @@ html, body {
 <script>
 // ====== 全局状态 ======
 let messages = [];
+let activityLogs = [];
 let isGenerating = false;
 let pendingImage = null; // {url: base64, placeholder: string}
 let providers = []; // [{name, url, key}]
@@ -734,6 +748,7 @@ window.onload = () => {
   updateProviderTags();
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
+  try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
 };
 
 // ====== LocalStorage 工具 ======
@@ -749,6 +764,7 @@ function showPanel(name) {
   document.getElementById(name + '-panel').classList.add('show');
   if (name === 'memory') loadMemoryTab();
   if (name === 'wallet') loadWallet();
+  if (name === 'log') renderLogs();
 }
 function hidePanel(name) {
   document.getElementById(name + '-panel').classList.remove('show');
@@ -837,6 +853,15 @@ function showStatus(msg, duration = 3000) {
   bar.textContent = msg;
   bar.classList.add('show');
   setTimeout(() => bar.classList.remove('show'), duration);
+
+  // 记录到日志
+  const now = new Date();
+  const timeStr = String(now.getHours()).padStart(2, '0') + ':' +
+    String(now.getMinutes()).padStart(2, '0') + ':' +
+    String(now.getSeconds()).padStart(2, '0');
+  activityLogs.unshift({ time: timeStr, msg });
+  if (activityLogs.length > 200) activityLogs.pop();
+  localStorage.setItem('activityLogs', JSON.stringify(activityLogs));
 }
 
 // ====== 供应商管理 ======
@@ -2037,6 +2062,28 @@ function checkForRedPacket(content) {
       }).then(() => loadWallet()).catch(() => {});
     }
   }
+}
+
+// ====== 工作日志 ======
+function renderLogs() {
+  const el = document.getElementById('log-content');
+  if (activityLogs.length === 0) {
+    el.innerHTML = '<p style="color:var(--text2);padding:20px 0;">暂无日志</p>';
+    return;
+  }
+  el.innerHTML = activityLogs.map(log =>
+    `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;">
+      <span style="color:var(--accent);white-space:nowrap;">${log.time}</span>
+      <span style="color:var(--text2);">${escapeHtml(log.msg)}</span>
+    </div>`
+  ).join('');
+}
+
+function clearLogs() {
+  if (!confirm('确定清空所有日志？')) return;
+  activityLogs = [];
+  localStorage.setItem('activityLogs', JSON.stringify(activityLogs));
+  renderLogs();
 }
 
 // ====== PWA ======
