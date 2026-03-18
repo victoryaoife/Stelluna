@@ -470,7 +470,6 @@ html, body {
     <button id="img-btn" onclick="document.getElementById('img-input').click()" title="发送图片">🖼</button>
     <button id="file-btn" onclick="document.getElementById('file-input').click()" title="发送文件" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:6px;">📎</button>
 <input type="file" id="file-input" accept=".txt,.js,.py,.html,.css,.json,.md,.csv,.xml,.yaml,.yml,.toml,.log,.sql,.sh,.ts,.jsx,.tsx,.vue,.svelte,.go,.rs,.java,.c,.cpp,.h,.rb,.php,.swift,.kt" style="display:none;" onchange="handleFileSelect(event)">
-    <input type="file" id="img-input" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
     <textarea id="input" rows="1" placeholder="说点什么..."
       oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
     <button id="send-btn" onclick="sendMessage()">↑</button>
