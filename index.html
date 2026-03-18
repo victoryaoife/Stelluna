@@ -1573,60 +1573,71 @@ async function generateResponse(aiIndex, images = null) {
     isFirstAfterArchive = false;
     setSetting('isFirstAfterArchive', 'false');
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    const isStream = getSetting('streamEnabled', 'true') !== 'false';
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+    if (!isStream) {
+      // 非流式
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      if (choice) {
+        fullContent = choice.message?.content || '';
+        thinkingContent = choice.message?.reasoning_content || '';
+      }
+      aiBubble.innerHTML = renderMarkdown(fullContent);
+      scrollToBottom();
+    } else {
+      // 流式
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue;
-        const dataStr = line.slice(5).trim();
-        if (dataStr === '[DONE]') continue;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        try {
-          const json = JSON.parse(dataStr);
-          const delta = json.choices?.[0]?.delta;
-          if (!delta) continue;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-          if (delta.reasoning_content) {
-            inThinking = true;
-            thinkingContent += delta.reasoning_content;
-            aiBubble.innerHTML = '<div class="thinking-block">'
-              + '<div class="thinking-toggle"><span class="thinking-arrow open">▶</span> 思考中...</div>'
-              + '<div class="thinking-content show">' + escapeHtml(thinkingContent) + '</div></div>';
-            scrollToBottom();
-            continue;
-          }
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue;
+          const dataStr = line.slice(5).trim();
+          if (dataStr === '[DONE]') continue;
 
-          if (delta.content) {
-            if (inThinking) inThinking = false;
-            fullContent += delta.content;
-            let displayHtml = '';
-            if (thinkingContent) {
-              displayHtml += '<div class="thinking-block">'
-                + '<div class="thinking-toggle" onclick="toggleThinking(this)">'
-                + '<span class="thinking-arrow">▶</span> 思考过程</div>'
-                + '<div class="thinking-content">' + escapeHtml(thinkingContent) + '</div></div>';
+          try {
+            const json = JSON.parse(dataStr);
+            const delta = json.choices?.[0]?.delta;
+            if (!delta) continue;
+
+            if (delta.reasoning_content) {
+              inThinking = true;
+              thinkingContent += delta.reasoning_content;
+              aiBubble.innerHTML = '<div class="thinking-block">'
+                + '<div class="thinking-toggle"><span class="thinking-arrow open">▶</span> 思考中...</div>'
+                + '<div class="thinking-content show">' + escapeHtml(thinkingContent) + '</div></div>';
+              scrollToBottom();
+              continue;
             }
-            displayHtml += renderMarkdown(fullContent);
-            aiBubble.innerHTML = displayHtml;
-            scrollToBottom();
-          }
-        } catch (parseErr) {}
+
+            if (delta.content) {
+              if (inThinking) inThinking = false;
+              fullContent += delta.content;
+              let displayHtml = '';
+              if (thinkingContent) {
+                displayHtml += '<div class="thinking-block">'
+                  + '<div class="thinking-toggle" onclick="toggleThinking(this)">'
+                  + '<span class="thinking-arrow">▶</span> 思考过程</div>'
+                  + '<div class="thinking-content">' + escapeHtml(thinkingContent) + '</div></div>';
+              }
+              displayHtml += renderMarkdown(fullContent);
+              aiBubble.innerHTML = displayHtml;
+              scrollToBottom();
+            }
+          } catch (parseErr) {}
+        }
       }
     }
-
-    const vObj = messages[aiIndex].versions[messages[aiIndex].activeVersion];
-    vObj.content = fullContent;
-    vObj.timestamp = new Date().toISOString();
-    vObj.thinking = thinkingContent;
     saveMessages();
     renderAll();
 
