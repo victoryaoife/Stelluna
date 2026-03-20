@@ -55,8 +55,39 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow:hidden;
 }
-#app { display:flex; flex-direction:column; height:100%; }
+#app { display:none; flex-direction:column; height:100%; }
 
+/* ====== Lock Screen ====== */
+#lock-screen {
+  position:fixed; inset:0; background:var(--bg);
+  z-index:999; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:12px; padding:20px;
+}
+#lock-screen.hidden { display:none; }
+#lock-screen .lock-emoji { font-size:48px; margin-bottom:8px; }
+#lock-screen h2 { font-size:18px; color:var(--text); }
+#lock-screen .lock-subtitle { font-size:13px; color:var(--text2); margin-bottom:8px; }
+#lock-screen input {
+  width:220px; background:var(--surface2); border:1px solid var(--border);
+  color:var(--text); padding:12px 16px; border-radius:12px;
+  font-size:18px; text-align:center; outline:none;
+  letter-spacing:6px; -webkit-text-security:disc;
+}
+#lock-screen input:focus { border-color:var(--accent); }
+#lock-screen .lock-btn {
+  background:var(--accent); border:none; color:white;
+  padding:10px 32px; border-radius:10px; font-size:15px;
+  cursor:pointer; margin-top:4px;
+}
+#lock-screen .lock-error {
+  color:var(--danger); font-size:13px; min-height:20px;
+}
+#lock-screen .lock-reset {
+  font-size:12px; color:var(--text2); cursor:pointer;
+  margin-top:24px; text-decoration:underline;
+}
+  
 /* ====== Header ====== */
 #header {
   display:flex; align-items:center; justify-content:space-between;
@@ -70,7 +101,6 @@ html, body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-}
 }
 .header-left, .header-right { display:flex; gap:4px; }
 #header button {
@@ -467,16 +497,67 @@ html, body {
 }
 .status-ok { color:#6ecf6e; }
 .status-err { color:#cf6e6e; }
+
+/* ====== Calendar Panel ====== */
+.calendar-hero {
+  text-align:center; padding:24px; background:var(--surface2);
+  border-radius:14px; margin-bottom:20px;
+}
+.calendar-hero .days-count {
+  font-size:42px; font-weight:700; color:var(--accent);
+}
+.calendar-hero .days-label {
+  font-size:14px; color:var(--text2); margin-top:4px;
+}
+.calendar-hero .days-since {
+  font-size:12px; color:var(--text2); margin-top:2px;
+}
+.cal-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px; background:var(--surface2); border:1px solid var(--border);
+  border-radius:10px; margin-bottom:8px;
+}
+.cal-item .cal-info { flex:1; }
+.cal-item .cal-date { font-size:14px; color:var(--text); font-weight:500; }
+.cal-item .cal-event { font-size:13px; color:var(--text2); margin-top:2px; }
+.cal-item .cal-countdown {
+  font-size:12px; padding:4px 10px; border-radius:6px;
+  background:var(--accent); color:white; white-space:nowrap;
+}
+.cal-item .cal-countdown.past {
+  background:var(--surface); color:var(--text2);
+}
+.cal-item .cal-delete {
+  background:none; border:none; color:var(--text2);
+  font-size:16px; cursor:pointer; margin-left:8px; padding:4px;
+}
+.cal-item .cal-delete:hover { color:var(--danger); }
+
 </style>
 </head>
 <body>
+
+<!-- ====== Lock Screen ====== -->
+<div id="lock-screen">
+  <div class="lock-emoji">🌙</div>
+  <h2 id="lock-title">设置密码</h2>
+  <div class="lock-subtitle" id="lock-subtitle">为星月栖设置一个专属密码</div>
+  <input id="lock-input" type="tel" maxlength="6" placeholder="······" onkeydown="if(event.key==='Enter')lockAction()">
+  <input id="lock-confirm" type="tel" maxlength="6" placeholder="再输入一次" style="display:none;" onkeydown="if(event.key==='Enter')lockAction()">
+  <button class="lock-btn" onclick="lockAction()">确认</button>
+  <div class="lock-error" id="lock-error"></div>
+  <div class="lock-reset" id="lock-reset" style="display:none;" onclick="resetPassword()">忘记密码？重置所有数据</div>
+</div>
+  
 <div id="app">
   <!-- ====== Header ====== -->
   <div id="header">
     <div class="header-left">
       <button onclick="newChat()" title="新对话">＋</button>
       <button onclick="showPanel('memory')" title="记忆库">📋</button>
+      <button onclick="showPanel('calendar')" title="日历">📅</button>
     </div>
+
     <h1>星月栖</h1>
     <div class="header-right">
       <button onclick="showPanel('log')" title="工作日志">📜</button>
@@ -752,6 +833,26 @@ html, body {
   <div id="wallet-history"></div>
 </div>
 
+<!-- ====== Calendar Panel ====== -->
+<div id="calendar-panel" class="panel-overlay">
+  <div class="panel-header">
+    <h2>📅 星月日历</h2>
+    <button onclick="hidePanel('calendar')">返回</button>
+  </div>
+  <div class="calendar-hero">
+    <div class="days-count" id="cal-days-count">0</div>
+    <div class="days-label">天</div>
+    <div class="days-since">🌙 2025.1.4 �今</div>
+  </div>
+  <div class="section-title">📝 待办事项</div>
+  <div class="setting-row" style="margin-bottom:12px;">
+    <input id="cal-new-date" type="date" style="flex:0.5;">
+    <input id="cal-new-event" placeholder="事件内容" style="flex:1;">
+    <button class="small-btn" onclick="addCalendarEvent()">添加</button>
+  </div>
+  <div id="cal-events-list"></div>
+</div>
+  
 <!-- ====== Log Panel ====== -->
 <div id="log-panel" class="panel-overlay">
   <div class="panel-header">
@@ -796,15 +897,72 @@ let currentLocation = null;
 
 // ====== 初始化 ======
 window.onload = () => {
+  applyTheme();
+  checkLock();
+};
+
+// ====== 锁屏 ======
+function checkLock() {
+  const pwd = localStorage.getItem('lockPassword');
+  if (pwd) {
+    document.getElementById('lock-title').textContent = '欢迎回来';
+    document.getElementById('lock-subtitle').textContent = '请输入密码';
+    document.getElementById('lock-confirm').style.display = 'none';
+    document.getElementById('lock-reset').style.display = 'block';
+  } else {
+    document.getElementById('lock-title').textContent = '设置密码';
+    document.getElementById('lock-subtitle').textContent = '为星月栖设置一个专属密码';
+    document.getElementById('lock-confirm').style.display = 'block';
+    document.getElementById('lock-reset').style.display = 'none';
+  }
+}
+
+function lockAction() {
+  const pwd = localStorage.getItem('lockPassword');
+  const input = document.getElementById('lock-input').value;
+  const error = document.getElementById('lock-error');
+  error.textContent = '';
+
+  if (pwd) {
+    if (input === pwd) {
+      unlock();
+    } else {
+      error.textContent = '密码错误';
+      document.getElementById('lock-input').value = '';
+    }
+  } else {
+    const confirmVal = document.getElementById('lock-confirm').value;
+    if (input.length < 4) {
+      error.textContent = '密码至少4位';
+      return;
+    }
+    if (input !== confirmVal) {
+      error.textContent = '两次输入不一致';
+      return;
+    }
+    localStorage.setItem('lockPassword', input);
+    unlock();
+  }
+}
+
+function unlock() {
+  document.getElementById('lock-screen').classList.add('hidden');
+  document.getElementById('app').style.display = 'flex';
   loadSettings();
   loadMessages();
   renderAll();
-  applyTheme();
   updateProviderTags();
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
-};
+}
+
+function resetPassword() {
+  if (!confirm('重置密码将清除所有本地数据（聊天记录、设置等），但Supabase的数据不受影响。确定吗？')) return;
+  if (!confirm('真的确定吗？本地数据不可恢复！')) return;
+  localStorage.clear();
+  location.reload();
+}
 
 // ====== LocalStorage 工具 ======
 function getSetting(key, def = '') {
@@ -820,6 +978,7 @@ function showPanel(name) {
   if (name === 'memory') loadMemoryTab();
   if (name === 'wallet') loadWallet();
   if (name === 'log') renderLogs();
+  if (name === 'calendar') loadCalendar();
 }
 function hidePanel(name) {
   document.getElementById(name + '-panel').classList.remove('show');
@@ -1655,6 +1814,10 @@ async function generateResponse(aiIndex, images = null) {
         }
       }
     }
+    // 检测并清理状态/缓存标记
+    fullContent = await detectStatusTags(fullContent);
+    // 检测红包
+    checkForRedPacket(fullContent);
     // 后台通知
     if (document.hidden && Notification.permission === 'granted') {
       const preview = fullContent.slice(0, 50) + (fullContent.length > 50 ? '...' : '');
@@ -1663,7 +1826,11 @@ async function generateResponse(aiIndex, images = null) {
         icon: '🌙',
       });
     }
-
+    // 把清理后的内容存入当前版本
+    const finalVersion = messages[aiIndex].versions[messages[aiIndex].activeVersion];
+    finalVersion.content = fullContent;
+    finalVersion.thinking = thinkingContent;
+    finalVersion.timestamp = new Date().toISOString();
     saveMessages();
     renderAll();
 
@@ -2288,6 +2455,159 @@ function clearLogs() {
   renderLogs();
 }
 
+// ====== 日历 ======
+function loadCalendar() {
+  updateDaysCount();
+  loadCalendarEvents();
+}
+
+function updateDaysCount() {
+  const start = new Date('2025-01-04T00:00:00+08:00');
+  const now = new Date();
+  const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  document.getElementById('cal-days-count').textContent = days;
+}
+
+async function loadCalendarEvents() {
+  const gateway = getSetting('gateway');
+  if (!gateway) {
+    document.getElementById('cal-events-list').innerHTML = '<p style="color:var(--text2);">请先设置网关地址</p>';
+    return;
+  }
+
+  try {
+    const res = await fetch(gateway + '/api/calendar');
+    const events = await res.json();
+    const list = document.getElementById('cal-events-list');
+
+    if (!Array.isArray(events) || events.length === 0) {
+      list.innerHTML = '<p style="color:var(--text2);font-size:13px;">暂无待办事项</p>';
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    list.innerHTML = events.map(ev => {
+      const evDate = new Date(ev.date + 'T00:00:00+08:00');
+      const todayDate = new Date(today + 'T00:00:00+08:00');
+      const diff = Math.ceil((evDate - todayDate) / (1000 * 60 * 60 * 24));
+      let countdown, countdownClass;
+      if (diff < 0) {
+        countdown = Math.abs(diff) + '天前';
+        countdownClass = 'past';
+      } else if (diff === 0) {
+        countdown = '今天';
+        countdownClass = '';
+      } else if (diff === 1) {
+        countdown = '明天';
+        countdownClass = '';
+      } else {
+        countdown = diff + '天后';
+        countdownClass = '';
+      }
+
+      return '<div class="cal-item">'
+        + '<div class="cal-info">'
+        + '<div class="cal-date">' + escapeHtml(ev.date) + '</div>'
+        + '<div class="cal-event">' + escapeHtml(ev.event) + '</div>'
+        + '</div>'
+        + '<span class="cal-countdown ' + countdownClass + '">' + countdown + '</span>'
+        + '<button class="cal-delete" onclick="deleteCalendarEvent(' + ev.id + ')" title="删除">✕</button>'
+        + '</div>';
+    }).join('');
+
+  } catch (e) {
+    document.getElementById('cal-events-list').innerHTML = '<p style="color:var(--danger);">加载失败：' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+async function addCalendarEvent() {
+  const date = document.getElementById('cal-new-date').value;
+  const event = document.getElementById('cal-new-event').value.trim();
+  if (!date || !event) { alert('请填写日期和事件'); return; }
+
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
+
+  try {
+    const res = await fetch(gateway + '/api/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, event }),
+    });
+    const result = await res.json();
+    if (result.success) {
+      document.getElementById('cal-new-date').value = '';
+      document.getElementById('cal-new-event').value = '';
+      showStatus('待办已添加 ✓');
+      loadCalendarEvents();
+    }
+  } catch (e) {
+    showStatus('添加失败：' + e.message);
+  }
+}
+
+async function deleteCalendarEvent(id) {
+  if (!confirm('删除这条待办？')) return;
+
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
+
+  try {
+    const res = await fetch(gateway + '/api/calendar/' + id, { method: 'DELETE' });
+    const result = await res.json();
+    if (result.success) {
+      showStatus('已删除 ✓');
+      loadCalendarEvents();
+    }
+  } catch (e) {
+    showStatus('删除失败：' + e.message);
+  }
+}
+
+// ====== 状态/缓存标记检测 ======
+async function detectStatusTags(content) {
+  const gateway = getSetting('gateway');
+  if (!gateway) return content;
+
+  let cleaned = content;
+
+  const statusRegex = /<<状态>>([\s\S]*?)<<\/状态>>/g;
+  let m;
+  while ((m = statusRegex.exec(content)) !== null) {
+    const val = m[1].trim();
+    if (val) {
+      try {
+        await fetch(gateway + '/api/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'status', content: val }),
+        });
+        showStatus('状态已记录 ✓');
+      } catch (e) { console.error('存储状态失败:', e); }
+    }
+    cleaned = cleaned.replace(m[0], '');
+  }
+
+  const cacheRegex = /<<缓存>>([\s\S]*?)<<\/缓存>>/g;
+  while ((m = cacheRegex.exec(content)) !== null) {
+    const val = m[1].trim();
+    if (val) {
+      try {
+        await fetch(gateway + '/api/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'cache', content: val }),
+        });
+        showStatus('缓存已记录 ✓');
+      } catch (e) { console.error('存储缓存失败:', e); }
+    }
+    cleaned = cleaned.replace(m[0], '');
+  }
+
+  return cleaned.trim();
+}
+  
 // ====== PWA ======
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
