@@ -842,7 +842,7 @@ html, body {
   <div class="calendar-hero">
     <div class="days-count" id="cal-days-count">0</div>
     <div class="days-label">天</div>
-    <div class="days-since">🌙 2025.1.4 �今</div>
+    <div class="days-since">🌙💫 2025.1.4 至今</div>
   </div>
   <div class="section-title">📝 待办事项</div>
   <div class="setting-row" style="margin-bottom:12px;">
@@ -1966,10 +1966,13 @@ async function archiveToday() {
       // 标记下一条消息触发天气
       isFirstAfterArchive = true;
       setSetting('isFirstAfterArchive', 'true');
-      // 清空当前对话
-      messages = [];
-      saveMessages();
-      renderAll();
+      // 保留最近40条消息作为上下文缓冲
+      const keepN = 40;
+      if (messages.length > keepN) {
+        messages = messages.slice(-keepN);
+      }
+saveMessages();
+renderAll();
     } else {
       showStatus('归档失败：' + (result.error || '未知错误'));
     }
