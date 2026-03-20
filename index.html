@@ -1657,7 +1657,7 @@ async function sendMessage() {
     versions: [{
       content: userContent,
       timestamp: new Date().toISOString(),
-      images: userImages,
+      images: userImages.map(img => ({ url: '[已发送]', alt: '图片' })),
     }],
     activeVersion: 0,
   });
