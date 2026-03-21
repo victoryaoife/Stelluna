@@ -971,6 +971,7 @@ function unlock() {
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
+  subscribePush();
 }
 
 function resetPassword() {
@@ -2656,6 +2657,68 @@ async function detectStatusTags(content) {
 
   return cleaned.trim();
 }
+
+// ====== Web Push 订阅 ======
+async function subscribePush() {
+  const gateway = getSetting('gateway');
+  const vapidPublicKey = 'BGgOWrHs5ebFeoU_MpS4yHjADrxtJrveWF0qLPYeJcuQdETNo-MKn4QlfUiJqCWBRy-qWAuGTG9BA7fxGm_KLsM';
+  
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showStatus('⚠ 浏览器不支持推送通知', 3000);
+    return;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      showStatus('⚠ 通知权限被拒绝', 3000);
+      return;
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    
+    // 检查是否已订阅
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      // urlBase64转Uint8Array
+      const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
+      const base64 = (vapidPublicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      const applicationServerKey = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; i++) {
+        applicationServerKey[i] = rawData.charCodeAt(i);
+      }
+
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+
+    }
+
+    // 发送订阅信息到网关存储
+    const subJson = sub.toJSON();
+    const res = await fetch(gateway + '/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys.p256dh,
+        auth: subJson.keys.auth,
+      }),
+    });
+
+    if (res.ok) {
+      showStatus('推送通知已开启 ✓');
+    } else {
+      showStatus('⚠ 订阅保存失败', 3000);
+    }
+  } catch (e) {
+    console.error('推送订阅失败:', e);
+    showStatus('⚠ 推送订阅失败: ' + e.message, 3000);
+  }
+}
+
   
 // ====== PWA ======
 if ('serviceWorker' in navigator) {
