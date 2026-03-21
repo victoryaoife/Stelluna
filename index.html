@@ -15,7 +15,7 @@
   --surface: #1a1a2e;
   --surface2: #333369;
   --border: #2a2a4a;
-  --text: #F6EDFF;
+  --text: #5A87DB;
   --text2: #2771D6;
   --accent: #6c8dca;
   --accent2: #8ba7d8;
@@ -51,7 +51,7 @@
   --ai-bg: #F0FFF7;
 }
 html, body {
-  height:100%; background:var(--bg); color:var(--text);
+  height:100%; background:var(--bg); color: #F2F7FF;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow:hidden;
 }
@@ -121,7 +121,7 @@ html, body {
 }
 .msg {
   display:flex; flex-direction:column; margin-bottom:12px;
-  max-width:90%; animation: fadeIn 0.2s ease;
+  max-width:100%; animation: fadeIn 0.2s ease;
 }
 @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 .msg.user { align-self:flex-end; align-items:flex-end; }
@@ -130,7 +130,7 @@ html, body {
 .msg-bubble {
   padding:10px 14px; border-radius:var(--radius);
   font-size:20px; line-height:1.2; word-break:break-word; font-weight:400;
-  max-width: 90%;
+  max-width: 100%;
 }
 .msg.user .msg-bubble {
   color: #F5F9FC; background:var(--user-bg);
@@ -243,7 +243,7 @@ html, body {
 }
 #input {
   flex:1; background:var(--surface2); border:1px solid var(--border);
-  color:var(--text); border-radius:20px; padding:10px 16px;
+  color: #F2F7FF; border-radius:20px; padding:10px 16px;
   font-size:18px; line-height:1.4; resize:none;
   max-height:120px; outline:none; font-family:inherit;
 }
