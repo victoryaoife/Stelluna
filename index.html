@@ -182,7 +182,7 @@ html, body {
   color:var(--text2); margin:0.5em 0; font-style:italic;
 }
 .msg-bubble em { color:#c8a8d8; }
-.msg-bubble strong { color:#0F7CD6; }
+.msg-bubble strong { color:#0A3080; }
 .msg-bubble[contenteditable=true] {
   outline:1px solid var(--accent);
   border-radius:var(--radius);
@@ -1834,12 +1834,14 @@ async function generateResponse(aiIndex, images = null) {
     saveMessages();
     renderAll();
 
-  } catch (err) {
-    aiBubble.innerHTML = '<span style="color:var(--danger);">⚠ ' + escapeHtml(err.message) + '</span>';
-    const vErr = messages[aiIndex].versions[messages[aiIndex].activeVersion];
-    vErr.content = '[错误] ' + err.message;
-    saveMessages();
-  }
+   } catch (err) {
+      showStatus('⚠ 生成失败: ' + err.message, 5000);
+      // 删掉AI占位消息
+      messages.splice(aiIndex, 1);
+      saveMessages();
+      renderAll();
+   }
+
 
   isGenerating = false;
   document.getElementById('send-btn').disabled = false;
@@ -2587,7 +2589,10 @@ async function detectStatusTags(content) {
           body: JSON.stringify({ type: 'status', content: val }),
         });
         showStatus('状态已记录 ✓');
-      } catch (e) { console.error('存储状态失败:', e); }
+      } catch (e) { 
+        console.error('存储状态失败:', e);
+        showStatus('⚠ 状态存储失败: ' + e.message, 3000);
+      }
     }
     cleaned = cleaned.replace(m[0], '');
   }
@@ -2603,7 +2608,10 @@ async function detectStatusTags(content) {
           body: JSON.stringify({ type: 'cache', content: val }),
         });
         showStatus('缓存已记录 ✓');
-      } catch (e) { console.error('存储缓存失败:', e); }
+      } catch (e) { 
+        console.error('存储缓存失败:', e);
+        showStatus('⚠ 缓存存储失败: ' + e.message, 3000);
+      }
     }
     cleaned = cleaned.replace(m[0], '');
   }
