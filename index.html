@@ -1848,6 +1848,19 @@ async function generateResponse(aiIndex, images = null) {
         }
       }
     }
+    // 如果页面在后台，请求Worker发送推送通知
+    if (document.hidden) {
+      fetch(gateway + '/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          title: '听月回复你了 💓', 
+          body: fullContent.slice(0, 50) + (fullContent.length > 50 ? '...' : '')
+        }),
+      }).catch(() => {});
+    }
+
+    
     // 移除停止按钮
     const existingStop = aiMsgEl.querySelector('.stop-btn');
     if (existingStop) existingStop.remove();
