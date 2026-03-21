@@ -1872,12 +1872,18 @@ async function generateResponse(aiIndex, images = null) {
     renderAll();
 
    } catch (err) {
-      showStatus('⚠ 生成失败: ' + err.message, 5000);
-      // 删掉AI占位消息
-      messages.splice(aiIndex, 1);
-      saveMessages();
-      renderAll();
+       showStatus('⚠ 生成失败: ' + err.message, 5000);
+       // 不删除消息，显示重试按钮
+       const retryBtn = document.createElement('button');
+       retryBtn.className = 'stop-btn';
+       retryBtn.textContent = '🔄 重试';
+       retryBtn.onclick = () => {
+         retryBtn.remove();
+         generateResponse(aiIndex, images);
+       };
+       aiBubble.appendChild(retryBtn);
    }
+
 
 
   isGenerating = false;
