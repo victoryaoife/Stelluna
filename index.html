@@ -1868,14 +1868,7 @@ async function generateResponse(aiIndex, images = null) {
     fullContent = await detectStatusTags(fullContent);
     // 检测红包
     checkForRedPacket(fullContent);
-    // 后台通知
-    if (document.hidden && Notification.permission === 'granted') {
-      const preview = fullContent.slice(0, 50) + (fullContent.length > 50 ? '...' : '');
-      new Notification('听月回复你了 💓', {
-        body: preview,
-        icon: '🌙',
-      });
-    }
+
     // 把清理后的内容存入当前版本
     const finalVersion = messages[aiIndex].versions[messages[aiIndex].activeVersion];
     finalVersion.content = fullContent;
