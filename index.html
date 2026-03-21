@@ -199,7 +199,7 @@ html, body {
   border-left:3px solid var(--accent); padding-left:10px;
   color:var(--text2); margin:0.5em 0; font-style:italic;
 }
-.msg-bubble em { color:#E4C1F5; }
+.msg-bubble em { color:#BDA3CC; }
 .msg-bubble strong { color:#0A3080; }
 .msg-bubble[contenteditable=true] {
   outline:1px solid var(--accent);
@@ -1714,6 +1714,21 @@ async function sendMessage() {
   input.value = '';
   input.style.height = 'auto';
 
+  // 检测星语发的红包
+  const rpMatch = userContent.match(/\[红包:(\d+)(?::(.+?))?\]/);
+  if (rpMatch) {
+    const rpAmount = parseInt(rpMatch[1]);
+    const rpMsg = rpMatch[2] || '来自星星的红包～';
+    showRedPacket(rpAmount, rpMsg, '🧧 星星的红包');
+    if (gateway) {
+      fetch(gateway + '/api/wallet/transact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: rpAmount, type: 'red_packet_from_star', description: rpMsg }),
+      }).catch(() => {});
+    }
+  }
+  
   // AI占位
   messages.push({
     role: 'assistant',
