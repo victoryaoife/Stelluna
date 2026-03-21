@@ -1854,9 +1854,11 @@ async function generateResponse(aiIndex, images = null) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          title: '听月回复你了 💓', 
-          body: fullContent.slice(0, 50) + (fullContent.length > 50 ? '...' : '')
+          title: '星月栖 · 听月', 
+          body: fullContent.slice(0, 80) + (fullContent.length > 80 ? '...' : ''),
+          url: 'https://victoryaoife.github.io/'
         }),
+
       }).catch(() => {});
     }
 
