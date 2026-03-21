@@ -156,12 +156,12 @@ html, body {
 .msg-bubble pre code { background:none; padding:0; }
 .code-header {
   display:flex; justify-content:space-between; align-items:center;
-  padding:4px 10px; background:rgba(0,0,0,0.4);
-  border-radius:8px 8px 0 0; font-size:11px; color:var(--text2);
+  padding:4px 10px; background:rgba(240,248,255,1);
+  border-radius:8px 8px 0 0; font-size:15px; color:var(--text2);
 }
 .code-header .copy-btn {
   background:none; border:1px solid var(--border);
-  color:var(--text2); font-size:11px; padding:2px 8px;
+  color:var(--text2); font-size:15px; padding:2px 8px;
   border-radius:4px; cursor:pointer;
 }
 .code-header .copy-btn:hover { color:var(--accent); border-color:var(--accent); }
@@ -172,7 +172,7 @@ html, body {
   max-height:120px; overflow:hidden;
 }
 .code-expand-btn {
-  text-align:center; padding:4px; font-size:11px;
+  text-align:center; padding:4px; font-size:18px;
   color:var(--accent); cursor:pointer;
   background:rgba(0,0,0,0.2); border-radius:0 0 8px 8px;
 }
@@ -194,13 +194,13 @@ html, body {
 .msg:hover .msg-actions, .msg:active .msg-actions { opacity:1; }
 .msg-actions button {
   background:var(--surface2); border:1px solid var(--border);
-  color:var(--text2); font-size:13px; padding:2px 8px;
+  color:var(--text2); font-size:15px; padding:2px 8px;
   border-radius:6px; cursor:pointer;
 }
-.version-nav { font-size:11px; color:var(--text2); }
+.version-nav { font-size:13px; color:var(--text2); }
 .edit-actions { display:flex; gap:6px; margin-top:4px; }
 .edit-actions button {
-  font-size:12px; padding:3px 10px; border-radius:6px;
+  font-size:13px; padding:3px 10px; border-radius:6px;
   border:none; cursor:pointer;
 }
 .edit-save { background:var(--accent); color:white; }
@@ -208,6 +208,21 @@ html, body {
 .msg-image {
   max-width:200px; max-height:200px; border-radius:8px;
   margin:4px 0; cursor:pointer;
+}
+.stop-btn {
+  display: inline-block;
+  margin: 4px 0 4px 48px;
+  padding: 4px 12px;
+  background: var(--danger, #e74c3c);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.stop-btn:hover {
+  opacity: 1;
 }
 
 /* ====== Thinking ====== */
@@ -886,6 +901,7 @@ let messages = [];
 let activityLogs = [];
 let isGenerating = false;
 let pendingImage = null; // {url: base64, placeholder: string}
+let currentAbortController = null;
 let providers = []; // [{name, url, key}]
 let activeProvider = 0;
 let favoriteModels = [];
@@ -1709,6 +1725,19 @@ async function generateResponse(aiIndex, images = null) {
   const aiMsgEl = container.querySelector('.msg[data-index="' + aiIndex + '"]');
   const aiBubble = aiMsgEl.querySelector('.msg-bubble');
   aiBubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  // 停止生成按钮
+  const stopBtn = document.createElement('button');
+  stopBtn.className = 'stop-btn';
+  stopBtn.textContent = '⏹ 停止';
+  stopBtn.onclick = () => {
+    if (currentAbortController) {
+      currentAbortController.abort();
+      currentAbortController = null;
+      stopBtn.remove();
+    }
+  };
+  aiMsgEl.appendChild(stopBtn);
+
 
   const gateway = getSetting('gateway');
   const config = buildConfig();
@@ -1733,12 +1762,16 @@ async function generateResponse(aiIndex, images = null) {
   let thinkingContent = '';
   let inThinking = false;
 
+
   try {
-    const response = await fetch(gateway + '/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+     currentAbortController = new AbortController();
+     const response = await fetch(gateway + '/api/chat', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify(requestBody),
+       signal: currentAbortController.signal,
+     });
+
 
     if (!response.ok) {
       const errText = await response.text();
@@ -1814,6 +1847,9 @@ async function generateResponse(aiIndex, images = null) {
         }
       }
     }
+    // 移除停止按钮
+    const existingStop = aiMsgEl.querySelector('.stop-btn');
+    if (existingStop) existingStop.remove();
     // 检测并清理状态/缓存标记
     fullContent = await detectStatusTags(fullContent);
     // 检测红包
@@ -1846,6 +1882,8 @@ async function generateResponse(aiIndex, images = null) {
   isGenerating = false;
   document.getElementById('send-btn').disabled = false;
   scrollToBottom();
+
+  currentAbortController = null;
 }
 
 // ====== 主动消息 ======
