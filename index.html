@@ -13,10 +13,10 @@
 :root {
   --bg: #C4DBF2;
   --surface: #1a1a2e;
-  --surface2: #232340;
+  --surface2: #333369;
   --border: #2a2a4a;
-  --text: #e8e8f0;
-  --text2: #9898b0;
+  --text: #F6EDFF;
+  --text2: #EDEDFF;
   --accent: #6c8dca;
   --accent2: #8ba7d8;
   --user-bg: #487FBD;
@@ -129,8 +129,8 @@ html, body {
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   padding:10px 14px; border-radius:var(--radius);
-  font-size:18px; line-height:1.5; word-break:break-word; font-weight:500;
-  max-width: 88%;
+  font-size:20px; line-height:1.3; word-break:break-word; font-weight:500;
+  max-width: 77%;
 }
 .msg.user .msg-bubble {
   color: #F5F9FC; background:var(--user-bg);
@@ -194,7 +194,7 @@ html, body {
 .msg:hover .msg-actions, .msg:active .msg-actions { opacity:1; }
 .msg-actions button {
   background:var(--surface2); border:1px solid var(--border);
-  color:var(--text2); font-size:11px; padding:2px 8px;
+  color:var(--text2); font-size:13px; padding:2px 8px;
   border-radius:6px; cursor:pointer;
 }
 .version-nav { font-size:11px; color:var(--text2); }
@@ -216,7 +216,7 @@ html, body {
   border-radius:8px; overflow:hidden;
 }
 .thinking-toggle {
-  padding:6px 10px; font-size:12px; color:var(--text2);
+  padding:6px 10px; font-size:15px; color:var(--text2);
   cursor:pointer; background:rgba(255,255,255,0.03);
   user-select:none;
 }
@@ -244,7 +244,7 @@ html, body {
 #input {
   flex:1; background:var(--surface2); border:1px solid var(--border);
   color:var(--text); border-radius:20px; padding:10px 16px;
-  font-size:15px; line-height:1.4; resize:none;
+  font-size:18px; line-height:1.4; resize:none;
   max-height:120px; outline:none; font-family:inherit;
 }
 #input:focus { border-color:var(--accent); }
