@@ -2830,7 +2830,7 @@ async function deleteCalendarEvent(id) {
   }
 }
 
-// ====== 状态/缓存标记检测 ======
+// ====== 状态/缓存/日历标记检测 ======
 async function detectStatusTags(content) {
   const gateway = getSetting('gateway');
   if (!gateway) return content;
@@ -2871,6 +2871,29 @@ async function detectStatusTags(content) {
       } catch (e) { 
         console.error('存储缓存失败:', e);
         showStatus('⚠ 缓存存储失败: ' + e.message, 3000);
+      }
+    }
+    cleaned = cleaned.replace(m[0], '');
+  }
+
+  // 处理日历标记
+  const calendarRegex = /<<日历>>([\s\S]*?)<<\/日历>>/g;
+  while ((m = calendarRegex.exec(content)) !== null) {
+    const val = m[1].trim();
+    if (val) {
+      const [cDate, cEvent] = val.split('|');
+      if (cDate && cEvent) {
+        try {
+          await fetch(gateway + '/api/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: cDate.trim(), event: cEvent.trim() }),
+          });
+          showStatus('日历已记录 ✓');
+        } catch (e) {
+          console.error('存储日历失败:', e);
+          showStatus('⚠ 日历存储失败: ' + e.message, 3000);
+        }
       }
     }
     cleaned = cleaned.replace(m[0], '');
