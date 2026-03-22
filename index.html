@@ -2221,7 +2221,7 @@ async function pullChatlog() {
       messages = parsed;
     }
 
-    renderMessages();
+    renderAll();
     saveMessages();
     showStatus(`拉取成功：${date}，共 ${parsed.length} 条消息 ✓`);
 
