@@ -2039,7 +2039,8 @@ function resetProactiveTimer() {
 
 async function checkProactive() {
   if (isGenerating) return;
-
+  if (window._proactivePending) return; 
+  
   const gateway = getSetting('gateway');
   if (!gateway) return;
 
@@ -2074,7 +2075,7 @@ async function checkProactive() {
     showStatus('主动消息判断: ' + JSON.stringify(result), 10000);
 
     if (result.should_speak) {
-
+      window._proactivePending = true; 
       // 触发主模型生成主动消息
       messages.push({
         role: 'assistant',
@@ -2086,9 +2087,11 @@ async function checkProactive() {
       saveMessages();
       renderAll();
       await generateResponse(messages.length - 1);
+      window._proactivePending = false;
     }
   } catch (e) {
     console.error('主动消息检查失败:', e);
+    window._proactivePending = false;
   }
 }
 // ====== 归档 ======
