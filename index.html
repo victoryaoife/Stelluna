@@ -2061,7 +2061,7 @@ async function archiveToday() {
   const gateway = getSetting('gateway');
   if (!gateway) { alert('请先设置网关地址'); return; }
 
-  // 确定日期（自定义取第一条消息的日期）
+  // 1. 输入日期
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
   const defaultDate = now.toISOString().slice(0, 10);
   const date = prompt('请输入归档日期（YYYY-MM-DD）：', defaultDate);
@@ -2070,18 +2070,29 @@ async function archiveToday() {
     return;
   }
 
+  // 2. 输入保留条数
+  const keepInput = prompt('保留最近多少条消息？', '40');
+  const keepN = parseInt(keepInput) || 40;
 
-  // 询问是否附带日记
+  // 3. 询问是否写日记
   let diary = null;
-  const writeDiary = confirm('是否同时写入日记？（点取消则只归档聊天记录）');
-  if (writeDiary) {
-    const content = prompt('请输入今日日记内容（或粘贴听月写的日记）：');
+  const wantDiary = confirm('是否同时写入日记？（取消=仅归档聊天记录）');
+  if (wantDiary) {
+    const content = prompt('请输入今日日记内容：');
     if (content) {
       const periodStatus = prompt('经期状态（没有则留空）：');
       diary = { content, period_status: periodStatus || null };
     }
   }
 
+  // 4. 最终确认
+  const finalConfirm = confirm(`确定归档 ${date}？\n保留 ${keepN} 条消息\n${wantDiary ? '✓ 写入日记' : '✗ 不写日记'}`);
+  if (!finalConfirm) {
+    showStatus('归档已取消');
+    return;
+  }
+
+  // 5. 执行归档
   const config = buildConfig();
   const archiveMessages = messages.map(m => {
     const v = m.versions ? m.versions[m.activeVersion || 0] : m;
@@ -2089,6 +2100,7 @@ async function archiveToday() {
       role: m.role,
       content: v.content || '',
       timestamp: v.timestamp || m.timestamp || '',
+      source: m.source || 'normal',
     };
   });
 
@@ -2104,23 +2116,18 @@ async function archiveToday() {
 
     if (result.success) {
       showStatus('归档成功：' + date + ' ✓', 5000);
-      // 标记下一条消息触发天气
       isFirstAfterArchive = true;
       setSetting('isFirstAfterArchive', 'true');
-      // 自定义保留最近N条消息作为上下文缓冲
-      const keepInput = prompt('保留最近多少条消息？', '40');
-      const keepN = parseInt(keepInput) || 40;
       if (messages.length > keepN) {
         messages = messages.slice(-keepN);
       }
-
-saveMessages();
-renderAll();
+      renderMessages();
+      saveMessages();
     } else {
-      showStatus('归档失败：' + (result.error || '未知错误'));
+      alert('归档失败：' + (result.error || '未知错误'));
     }
   } catch (e) {
-    showStatus('归档失败：' + e.message);
+    alert('归档出错：' + e.message);
   }
 }
 
