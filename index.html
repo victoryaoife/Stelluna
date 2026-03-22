@@ -2062,6 +2062,7 @@ async function checkProactive() {
   const recentMsgs = buildApiMessages().slice(-6);
 
   try {
+    showStatus('正在请求: ' + gateway + '/api/chat [proactive:' + isProactive + ']', 5000);
     const res = await fetch(gateway + '/api/proactive-check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
