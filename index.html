@@ -1829,12 +1829,16 @@ async function generateResponse(aiIndex, images = null) {
   // 构建API消息（去掉当前AI占位）
   const apiMessages = buildApiMessages().slice(0, aiIndex).slice(-contextN);
 
+  const isProactive = messages[aiIndex]?.isProactive || false;
+
   const requestBody = {
     messages: apiMessages,
     system_prompt: getSetting('sysPrompt', ''),
     config,
     is_first_after_archive: isFirstAfterArchive,
+    is_proactive: isProactive,
   };
+
 
   if (images) requestBody.images = images;
   if (getSetting('sendLocation') === 'true' && currentLocation) {
@@ -1991,6 +1995,14 @@ function startProactiveTimer() {
   const delay = parseInt(getSetting('proactiveDelay', '40')) * 60 * 1000;
   proactiveTimer = setInterval(() => checkProactive(), delay);
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && getSetting('proactiveEnabled') === 'true') {
+    // 切回前台，立即检查一次
+    setTimeout(() => checkProactive(), 2000);
+  }
+});
+
 
 function stopProactiveTimer() {
   if (proactiveTimer) {
