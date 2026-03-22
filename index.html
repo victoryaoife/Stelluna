@@ -833,7 +833,7 @@ html, body {
   <div class="setting-group">
     <div class="setting-row">
       <button class="small-btn" onclick="archiveToday()">📁 归档今日对话</button>
-      <button onclick="pullChatlog()">📥 拉取</button>
+      <button class="small-btn" onclick="pullChatlog()">📥 拉取</button>
       <button class="small-btn" onclick="exportTxt()">📄 导出为 TXT</button>
       <button class="small-btn" onclick="backfillEmbeddings()">🔮 补跑向量化</button>
     </div>
@@ -2122,8 +2122,8 @@ async function archiveToday() {
       if (messages.length > keepN) {
         messages = messages.slice(-keepN);
       }
-      renderMessages();
       saveMessages();
+      renderAll();
     } else {
       alert('归档失败：' + (result.error || '未知错误'));
     }
