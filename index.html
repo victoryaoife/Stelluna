@@ -2039,7 +2039,8 @@ function resetProactiveTimer() {
 
 async function checkProactive() {
   if (isGenerating) return;
-  if (window._proactivePending) return; 
+  if (window._proactivePending) return;
+  if (window._proactiveCooldown) return;
   
   const gateway = getSetting('gateway');
   if (!gateway) return;
@@ -2088,6 +2089,8 @@ async function checkProactive() {
       saveMessages();
       renderAll();
       await generateResponse(messages.length - 1);
+      window._proactiveCooldown = true;
+      setTimeout(() => { window._proactiveCooldown = false; }, 5 * 60 * 1000);
       window._proactivePending = false;
     }
   } catch (e) {
