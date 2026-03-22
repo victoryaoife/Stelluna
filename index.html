@@ -833,6 +833,7 @@ html, body {
   <div class="setting-group">
     <div class="setting-row">
       <button class="small-btn" onclick="archiveToday()">📁 归档今日对话</button>
+      <button onclick="pullChatlog()">📥 拉取</button>
       <button class="small-btn" onclick="exportTxt()">📄 导出为 TXT</button>
       <button class="small-btn" onclick="backfillEmbeddings()">🔮 补跑向量化</button>
     </div>
@@ -2180,6 +2181,93 @@ function exportTxt() {
   a.click();
   URL.revokeObjectURL(url);
   showStatus('已导出 TXT ✓');
+}
+
+// ====== 拉取聊天记录 ======  
+async function pullChatlog() {
+  const gateway = getSetting('gateway');
+  if (!gateway) { alert('请先设置网关地址'); return; }
+
+  const date = prompt('拉取哪天的聊天记录？（YYYY-MM-DD）：');
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    showStatus('⚠ 日期格式不正确');
+    return;
+  }
+
+  const action = confirm(`拉取 ${date} 的聊天记录到本地？\n\n【确定】= 追加到当前消息末尾\n【取消】= 替换当前所有消息`);
+  const isAppend = action;
+
+  showStatus('正在拉取...');
+
+  try {
+    const res = await fetch(`${gateway}/api/memory/chatlogs/${date}`);
+    const data = await res.json();
+
+    if (!data || !data.content) {
+      alert('该日期没有聊天记录');
+      return;
+    }
+
+    // 解析聊天记录格式：[HH:MM] 星语：内容
+    const parsed = parseChatlog(data.content);
+    if (parsed.length === 0) {
+      alert('解析失败或记录为空');
+      return;
+    }
+
+    if (isAppend) {
+      messages = messages.concat(parsed);
+    } else {
+      messages = parsed;
+    }
+
+    renderMessages();
+    saveMessages();
+    showStatus(`拉取成功：${date}，共 ${parsed.length} 条消息 ✓`);
+
+  } catch (e) {
+    alert('拉取失败：' + e.message);
+  }
+}
+
+function parseChatlog(content) {
+  const lines = content.split('\n');
+  const result = [];
+  let currentRole = null;
+  let currentContent = '';
+  let currentTimestamp = '';
+
+  for (const line of lines) {
+    // 匹配格式：[HH:MM] 星语： 或 [HH:MM] 听月：
+    const match = line.match(/^\[(\d{2}:\d{2})\]\s*(星语|听月)：?\s*(.*)$/);
+    if (match) {
+      // 保存上一条
+      if (currentRole) {
+        result.push({
+          role: currentRole === '星语' ? 'user' : 'assistant',
+          versions: [{ content: currentContent.trim(), timestamp: currentTimestamp }],
+          activeVersion: 0,
+        });
+      }
+      currentTimestamp = match[1];
+      currentRole = match[2];
+      currentContent = match[3] || '';
+    } else if (currentRole) {
+      // 续接上一条的多行内容
+      currentContent += '\n' + line;
+    }
+  }
+
+  // 保存最后一条
+  if (currentRole) {
+    result.push({
+      role: currentRole === '星语' ? 'user' : 'assistant',
+      versions: [{ content: currentContent.trim(), timestamp: currentTimestamp }],
+      activeVersion: 0,
+    });
+  }
+
+  return result;
 }
 
 
