@@ -2049,7 +2049,7 @@ async function checkProactive() {
       }),
     });
     const result = await res.json();
-    console.log('主动消息判断结果:', JSON.stringify(result));
+    showStatus('主动消息判断: ' + JSON.stringify(result), 10000);
 
     if (result.should_speak) {
 
