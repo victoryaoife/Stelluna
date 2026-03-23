@@ -2116,8 +2116,9 @@ async function archiveToday() {
   }
 
   // 2. 输入保留条数
-  const keepInput = prompt('当前共 ${messages.length} 条消息，保留最近多少条？（默认40）', '40');
+  const keepInput = prompt(`当前共 ${messages.length} 条消息，保留最近多少条？（默认40）`, '40');
   const keepN = parseInt(keepInput) || 40;
+
 
   // 3. 询问是否写日记
   let diary = null;
