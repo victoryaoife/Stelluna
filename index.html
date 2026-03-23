@@ -958,6 +958,7 @@ let currentMemoryTab = 'core';
 let proactiveTimer = null;
 let isFirstAfterArchive = true;
 let currentLocation = null;
+let isExporting = false;
 
 // ====== 初始化 ======
 window.onload = () => {
@@ -2178,53 +2179,62 @@ async function archiveToday() {
 // ====== 导出 TXT ======
 function exportTxt() {
   if (messages.length === 0) { alert('没有可导出的消息'); return; }
+  if (isExporting) { showStatus('正在导出中，请稍候...'); return; }
 
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
   const defaultDate = now.toISOString().slice(0, 10);
   const date = prompt('导出哪天的消息？（YYYY-MM-DD，留空导出全部）：', defaultDate);
 
-  let exportMessages = messages;
-  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    exportMessages = messages.filter(m => {
-      const v = m.versions ? m.versions[m.activeVersion || 0] : m;
-      if (!v.timestamp) return false;
-      const d = new Date(v.timestamp);
-      const bjTime = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
-      const bjDate = bjTime.toISOString().slice(0, 10);
-      return bjDate === date;
-    });
-    if (exportMessages.length === 0) {
-      alert('该日期没有找到消息');
-      return;
+  // 用户点了取消
+  if (date === null) return;
+
+  isExporting = true;
+
+  try {
+    let exportMessages = messages;
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      exportMessages = messages.filter(m => {
+        const v = m.versions ? m.versions[m.activeVersion || 0] : m;
+        if (!v.timestamp) return false;
+        const bjDate = new Date(v.timestamp).toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+        return bjDate === date;
+      });
+      if (exportMessages.length === 0) {
+        alert('该日期没有找到消息');
+        return;
+      }
     }
+
+    const exportDate = date || defaultDate;
+    let txt = `星月栖 · 聊天记录\n日期：${exportDate}\n${'='.repeat(40)}\n\n`;
+
+    exportMessages.forEach(m => {
+      const v = m.versions ? m.versions[m.activeVersion || 0] : m;
+      const name = m.role === 'user' ? '星语' : '听月';
+      const time = v.timestamp
+        ? '[' + new Date(v.timestamp).toLocaleString('zh-CN', {
+            timeZone: 'Asia/Shanghai',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          }) + '] '
+        : '';
+      txt += `${time}${name}：\n${v.content || ''}\n\n`;
+    });
+
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `星月栖_${exportDate}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showStatus('已导出 TXT ✓');
+  } finally {
+    isExporting = false;
   }
-
-  const exportDate = date || defaultDate;
-  let txt = `星月栖 · 聊天记录\n日期：${exportDate}\n${'='.repeat(40)}\n\n`;
-
-  exportMessages.forEach(m => {
-    const v = m.versions ? m.versions[m.activeVersion || 0] : m;
-    const name = m.role === 'user' ? '星语' : '听月';
-    const time = v.timestamp 
-      ? '[' + new Date(v.timestamp).toLocaleString('zh-CN', { 
-          timeZone: 'Asia/Shanghai', 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          hour12: false 
-        }) + '] ' 
-      : '';
-    txt += `${time}${name}：\n${v.content || ''}\n\n`;
-  });
-
-  const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `星月栖_${exportDate}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showStatus('已导出 TXT ✓');
 }
+
 
 // ====== 拉取聊天记录 ======  
 async function pullChatlog() {
@@ -2941,6 +2951,61 @@ async function detectStatusTags(content) {
     }
     cleaned = cleaned.replace(m[0], '');
   }
+
+    // 处理记忆创建标记
+  const memoryRegex = /<<记忆>>([\s\S]*?)<<\/记忆>>/g;
+  while ((m = memoryRegex.exec(content)) !== null) {
+    const val = m[1].trim();
+    if (val) {
+      const sepIdx = val.indexOf('|');
+      if (sepIdx > 0) {
+        const category = val.slice(0, sepIdx).trim();
+        const memContent = val.slice(sepIdx + 1).trim();
+        if (category && memContent) {
+          try {
+            await fetch(gateway + '/api/memory/core', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ category, title: category, content: memContent }),
+            });
+            showStatus('记忆已创建 ✓');
+          } catch (e) {
+            console.error('创建记忆失败:', e);
+            showStatus('⚠ 记忆创建失败: ' + e.message, 3000);
+          }
+        }
+      }
+    }
+    cleaned = cleaned.replace(m[0], '');
+  }
+
+  // 处理记忆更新标记
+  const updateMemRegex = /<<改记忆>>([\s\S]*?)<<\/改记忆>>/g;
+  while ((m = updateMemRegex.exec(content)) !== null) {
+    const val = m[1].trim();
+    if (val) {
+      const sepIdx = val.indexOf('|');
+      if (sepIdx > 0) {
+        const memId = val.slice(0, sepIdx).trim();
+        const newContent = val.slice(sepIdx + 1).trim();
+        if (memId && newContent) {
+          try {
+            await fetch(gateway + '/api/memory/core/' + memId, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: newContent }),
+            });
+            showStatus('记忆已更新 ✓');
+          } catch (e) {
+            console.error('更新记忆失败:', e);
+            showStatus('⚠ 记忆更新失败: ' + e.message, 3000);
+          }
+        }
+      }
+    }
+    cleaned = cleaned.replace(m[0], '');
+  }
+
 
   return cleaned.trim();
 }
