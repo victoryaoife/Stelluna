@@ -2140,15 +2140,23 @@ async function archiveToday() {
 
   // 5. 执行归档
   const config = buildConfig();
-  const archiveMessages = messages.map(m => {
-    const v = m.versions ? m.versions[m.activeVersion || 0] : m;
-    return {
-      role: m.role,
-      content: v.content || '',
-      timestamp: v.timestamp || m.timestamp || '',
-      source: m.source || 'normal',
-    };
-  });
+  const archiveMessages = messages
+    .filter(m => {
+      const v = m.versions ? m.versions[m.activeVersion || 0] : m;
+      const ts = v.timestamp || m.timestamp;
+      if (!ts) return true;
+      const bjDate = new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+      return bjDate === date;
+    })
+    .map(m => {
+      const v = m.versions ? m.versions[m.activeVersion || 0] : m;
+      return {
+        role: m.role,
+        content: v.content || '',
+        timestamp: v.timestamp || m.timestamp || '',
+        source: m.source || 'normal',
+      };
+    });
 
   showStatus('正在归档...');
 
@@ -2889,11 +2897,17 @@ async function detectStatusTags(content) {
   const gateway = getSetting('gateway');
   if (!gateway) return content;
 
-  let cleaned = content;
+  // 保护代码框内容不被标记检测
+  const codeBlocks = [];
+  let cleaned = content.replace(/```[\s\S]*?```/g, (match) => {
+    codeBlocks.push(match);
+    return `__CODEBLOCK_${codeBlocks.length - 1}__`;
+  });
+
+  let m;
 
   const statusRegex = /<<状态>>([\s\S]*?)<<\/状态>>/g;
-  let m;
-  while ((m = statusRegex.exec(content)) !== null) {
+  while ((m = statusRegex.exec(cleaned)) !== null) {
     const val = m[1].trim();
     if (val) {
       try {
@@ -2903,7 +2917,7 @@ async function detectStatusTags(content) {
           body: JSON.stringify({ type: 'status', content: val }),
         });
         showStatus('状态已记录 ✓');
-      } catch (e) { 
+      } catch (e) {
         console.error('存储状态失败:', e);
         showStatus('⚠ 状态存储失败: ' + e.message, 3000);
       }
@@ -2912,7 +2926,7 @@ async function detectStatusTags(content) {
   }
 
   const cacheRegex = /<<缓存>>([\s\S]*?)<<\/缓存>>/g;
-  while ((m = cacheRegex.exec(content)) !== null) {
+  while ((m = cacheRegex.exec(cleaned)) !== null) {
     const val = m[1].trim();
     if (val) {
       try {
@@ -2922,7 +2936,7 @@ async function detectStatusTags(content) {
           body: JSON.stringify({ type: 'cache', content: val }),
         });
         showStatus('缓存已记录 ✓');
-      } catch (e) { 
+      } catch (e) {
         console.error('存储缓存失败:', e);
         showStatus('⚠ 缓存存储失败: ' + e.message, 3000);
       }
@@ -2930,9 +2944,8 @@ async function detectStatusTags(content) {
     cleaned = cleaned.replace(m[0], '');
   }
 
-  // 处理日历标记
   const calendarRegex = /<<日历>>([\s\S]*?)<<\/日历>>/g;
-  while ((m = calendarRegex.exec(content)) !== null) {
+  while ((m = calendarRegex.exec(cleaned)) !== null) {
     const val = m[1].trim();
     if (val) {
       const [cDate, cEvent] = val.split('|');
@@ -2953,9 +2966,8 @@ async function detectStatusTags(content) {
     cleaned = cleaned.replace(m[0], '');
   }
 
-    // 处理记忆创建标记
   const memoryRegex = /<<记忆>>([\s\S]*?)<<\/记忆>>/g;
-  while ((m = memoryRegex.exec(content)) !== null) {
+  while ((m = memoryRegex.exec(cleaned)) !== null) {
     const val = m[1].trim();
     if (val) {
       const sepIdx = val.indexOf('|');
@@ -2980,9 +2992,8 @@ async function detectStatusTags(content) {
     cleaned = cleaned.replace(m[0], '');
   }
 
-  // 处理记忆更新标记
   const updateMemRegex = /<<改记忆>>([\s\S]*?)<<\/改记忆>>/g;
-  while ((m = updateMemRegex.exec(content)) !== null) {
+  while ((m = updateMemRegex.exec(cleaned)) !== null) {
     const val = m[1].trim();
     if (val) {
       const sepIdx = val.indexOf('|');
@@ -3007,9 +3018,48 @@ async function detectStatusTags(content) {
     cleaned = cleaned.replace(m[0], '');
   }
 
+  // 处理日记标记
+  const diaryRegex = /<<日记>>([\s\S]*?)<<\/日记>>/g;
+  while ((m = diaryRegex.exec(cleaned)) !== null) {
+    const val = m[1].trim();
+    if (val) {
+      const parts = val.split('|');
+      let diaryDate, periodStatus, diaryContent;
+      if (parts.length >= 3) {
+        diaryDate = parts[0].trim();
+        periodStatus = parts[1].trim() || null;
+        diaryContent = parts.slice(2).join('|').trim();
+      } else if (parts.length === 2) {
+        diaryDate = parts[0].trim();
+        periodStatus = null;
+        diaryContent = parts[1].trim();
+      }
+      if (diaryDate && diaryContent) {
+        try {
+          await fetch(gateway + '/api/diary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: diaryDate, content: diaryContent, period_status: periodStatus }),
+          });
+          showStatus('日记已写入 ✓');
+        } catch (e) {
+          console.error('写入日记失败:', e);
+          showStatus('⚠ 日记写入失败: ' + e.message, 3000);
+        }
+      }
+    }
+    cleaned = cleaned.replace(m[0], '');
+  }
+
+
+  // 还原代码框
+  codeBlocks.forEach((block, i) => {
+    cleaned = cleaned.replace(`__CODEBLOCK_${i}__`, block);
+  });
 
   return cleaned.trim();
 }
+
 
 // ====== Web Push 订阅 ======
 async function subscribePush() {
