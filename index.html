@@ -2096,6 +2096,7 @@ async function checkProactive() {
     }
   } catch (e) {
     console.error('主动消息检查失败:', e);
+    showStatus('⚠ 主动消息检查失败: ' + e.message, 5000);
     window._proactivePending = false;
   }
 }
