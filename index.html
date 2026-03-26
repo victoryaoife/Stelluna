@@ -3139,6 +3139,10 @@ function initKeyboard() {
   });
 }
 
+document.addEventListener('visibilitychange', () => {
+  showStatus('visibility: ' + document.visibilityState + ' | hidden: ' + document.hidden, 8000);
+});
+
 
 
   
