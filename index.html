@@ -582,6 +582,7 @@ html, body {
 .cal-item .cal-delete:hover { color:var(--danger); }
 
 </style>
+<script src="capacitor.js"></script>  
 </head>
 <body>
 
@@ -959,6 +960,7 @@ let proactiveTimer = null;
 let isFirstAfterArchive = true;
 let currentLocation = null;
 let isExporting = false;
+const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
 
 // ====== 初始化 ======
 window.onload = () => {
@@ -1020,6 +1022,7 @@ function unlock() {
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
+  if (isApp) requestLocalNotifPermission();
   subscribePush();
 }
 
@@ -1942,18 +1945,35 @@ async function generateResponse(aiIndex, images = null) {
         }
       }
     }
-    // 如果页面在后台，请求Worker发送推送通知
-    if (document.hidden) {
-      fetch(gateway + '/api/push/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          title: '星月栖 · 听月', 
-          body: fullContent.slice(0, 80) + (fullContent.length > 80 ? '...' : ''),
-          url: 'https://victoryaoife.github.io/'
-        }),
 
-      }).catch(() => {});
+    if (document.hidden || (isApp && !document.hasFocus())) {
+      if (isApp) {
+        try {
+          const { LocalNotifications } = Capacitor.Plugins;
+          await LocalNotifications.schedule({
+            notifications: [{
+              title: '听月发来消息 💓',
+              body: fullContent.slice(0, 80) + (fullContent.length > 80 ? '...' : ''),
+              id: Date.now(),
+              schedule: { at: new Date() },
+              sound: null,
+              smallIcon: 'ic_launcher',
+            }]
+          });
+        } catch (e) {
+          console.error('本地通知失败:', e);
+        }
+      } else {
+        fetch(gateway + '/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            title: '星月栖 · 听月', 
+            body: fullContent.slice(0, 80) + (fullContent.length > 80 ? '...' : ''),
+            url: 'https://victoryaoife.github.io/'
+          }),
+        }).catch(() => {});
+      }
     }
 
     
@@ -3060,7 +3080,20 @@ async function detectStatusTags(content) {
   return cleaned.trim();
 }
 
+// ====== 本地通知 ======
+async function requestLocalNotifPermission() {
+  try {
+    const { LocalNotifications } = Capacitor.Plugins;
+    const result = await LocalNotifications.requestPermissions();
+    if (result.display === 'granted') {
+      showStatus('通知权限已开启 ✓');
+    }
+  } catch (e) {
+    console.error('通知权限请求失败:', e);
+  }
+}
 
+  
 // ====== Web Push 订阅 ======
 async function subscribePush() {
   const gateway = getSetting('gateway');
