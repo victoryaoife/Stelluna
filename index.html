@@ -1023,6 +1023,7 @@ function unlock() {
   if (getSetting('sendLocation') === 'true') requestLocation();
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
   if (isApp) requestLocalNotifPermission();
+  if (isApp) requestLocationPermission();
   subscribePush();
 }
 
@@ -3092,6 +3093,19 @@ async function requestLocalNotifPermission() {
     console.error('通知权限请求失败:', e);
   }
 }
+
+  
+// ====== 本地位置 ======
+async function requestLocationPermission() {
+  try {
+    const { Geolocation } = Capacitor.Plugins;
+    const result = await Geolocation.requestPermissions();
+    console.log('位置权限:', result.location);
+  } catch (e) {
+    console.error('位置权限请求失败:', e);
+  }
+}
+
 
   
 // ====== Web Push 订阅 ======
