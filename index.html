@@ -1022,8 +1022,12 @@ function unlock() {
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
-  if (isApp) requestLocalNotifPermission();
-  if (isApp) requestLocationPermission();
+  if (isApp) {
+    requestLocalNotifPermission();
+    requestLocationPermission();
+    initStatusBar();
+    initKeyboard();
+  }
   subscribePush();
 }
 
@@ -1351,11 +1355,20 @@ function toggleStream() {
 
 // ====== 位置 ======
 function requestLocation() {
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    pos => { currentLocation = { lng: pos.coords.longitude, lat: pos.coords.latitude }; },
-    () => { currentLocation = null; }
-  );
+  if (isApp) {
+    try {
+      const { Geolocation } = Capacitor.Plugins;
+      Geolocation.getCurrentPosition().then(pos => {
+        currentLocation = { lng: pos.coords.longitude, lat: pos.coords.latitude };
+      }).catch(() => { currentLocation = null; });
+    } catch (e) { currentLocation = null; }
+  } else {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => { currentLocation = { lng: pos.coords.longitude, lat: pos.coords.latitude }; },
+      () => { currentLocation = null; }
+    );
+  }
 }
 
 // ====== 通知权限 ======
@@ -3105,6 +3118,27 @@ async function requestLocationPermission() {
     console.error('位置权限请求失败:', e);
   }
 }
+
+async function initStatusBar() {
+  try {
+    const { StatusBar } = Capacitor.Plugins;
+    await StatusBar.setBackgroundColor({ color: '#C4DBF2' });
+    await StatusBar.setStyle({ style: 'LIGHT' });
+  } catch (e) {}
+}
+
+function initKeyboard() {
+  if (!isApp) return;
+  const { Keyboard } = Capacitor.Plugins;
+  if (!Keyboard) return;
+  Keyboard.addListener('keyboardWillShow', () => {
+    document.body.style.setProperty('--keyboard-offset', '1');
+  });
+  Keyboard.addListener('keyboardWillHide', () => {
+    document.body.style.setProperty('--keyboard-offset', '0');
+  });
+}
+
 
 
   
