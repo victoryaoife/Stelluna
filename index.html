@@ -1968,14 +1968,14 @@ async function generateResponse(aiIndex, images = null) {
             notifications: [{
               title: '听月发来消息 💓',
               body: fullContent.slice(0, 80) + (fullContent.length > 80 ? '...' : ''),
-              id: Date.now(),
+              id: Math.floor(Math.random() * 2147483647),
               schedule: { at: new Date() },
               sound: null,
               smallIcon: 'ic_launcher',
             }]
           });
         } catch (e) {
-          console.error('本地通知失败:', e);
+          showStatus('⚠ 通知失败: ' + e.message, 5000);
         }
       } else {
         fetch(gateway + '/api/push/send', {
