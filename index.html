@@ -2109,6 +2109,7 @@ async function checkProactive() {
           const a = typeof apps[i] === 'string' ? JSON.parse(apps[i]) : apps[i];
           usageInfo += '\n- ' + a.name + ' ' + a.minutes + '分钟';
         }
+        showStatus('📱 ' + usageInfo, 8000);
       } else if (apps && apps.length === 0) {
         usageInfo = '她沉默期间没有使用手机。';
       }
