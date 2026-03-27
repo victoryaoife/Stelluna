@@ -2115,6 +2115,8 @@ async function checkProactive() {
       } else if (apps && apps.length === 0) {
         showStatus('📱 没有检测到app使用', 8000);
         usageInfo = '她沉默期间没有使用手机。';
+      } else {
+        showStatus('📱 apps返回null', 8000);
       }
     } catch (e) {
       showStatus('⚠ 使用时间获取失败: ' + e.message, 5000);
@@ -3184,7 +3186,7 @@ async function getScreenUsage(minutes) {
     }
     return result.apps;
   } catch (e) {
-    console.error('屏幕使用时间获取失败:', e);
+    showStatus('⚠ getScreenUsage内部错误: ' + e.message, 8000);
     return null;
   }
 }
