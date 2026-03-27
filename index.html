@@ -1820,6 +1820,7 @@ function retryMessage(index) {
 // ====== 流式生成 ======
 async function generateResponse(aiIndex, images = null) {
   isGenerating = true;
+  wasHiddenDuringGeneration = false;
   document.getElementById('send-btn').disabled = true;
 
   const container = document.getElementById('messages');
@@ -3148,11 +3149,18 @@ function initKeyboard() {
   });
 }
 
+
 let wasHiddenDuringGeneration = false;
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) wasHiddenDuringGeneration = true;
+  if (document.hidden) {
+    wasHiddenDuringGeneration = true;
+  } else if (isApp) {
+    try {
+      const { LocalNotifications } = Capacitor.Plugins;
+      LocalNotifications.removeAllDeliveredNotifications();
+    } catch (e) {}
+  }
 });
-
 
 
 
