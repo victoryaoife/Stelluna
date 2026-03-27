@@ -1959,8 +1959,10 @@ async function generateResponse(aiIndex, images = null) {
         }
       }
     }
-
-    if (document.hidden || (isApp && !document.hasFocus())) {
+    
+    showStatus('通知检查: hidden=' + document.hidden + ' isApp=' + isApp + ' content长度=' + fullContent.length, 8000);
+    
+    if (document.hidden || wasHiddenDuringGeneration) {
       if (isApp) {
         try {
           const { LocalNotifications } = Capacitor.Plugins;
@@ -1988,6 +1990,7 @@ async function generateResponse(aiIndex, images = null) {
           }),
         }).catch(() => {});
       }
+     wasHiddenDuringGeneration = false;
     }
 
     
@@ -3148,9 +3151,11 @@ function initKeyboard() {
   });
 }
 
+let wasHiddenDuringGeneration = false;
 document.addEventListener('visibilitychange', () => {
-  showStatus('visibility: ' + document.visibilityState + ' | hidden: ' + document.hidden, 8000);
+  if (document.hidden) wasHiddenDuringGeneration = true;
 });
+
 
 
 
