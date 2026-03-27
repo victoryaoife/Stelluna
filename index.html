@@ -2100,6 +2100,7 @@ async function checkProactive() {
 
   const config = buildConfig();
   const recentMsgs = buildApiMessages().slice(-6);
+  showStatus('🔍 到达usageInfo isApp=' + isApp + ' elapsed=' + elapsed, 8000);
   let usageInfo = '';
   if (isApp) {
     try {
