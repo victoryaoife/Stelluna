@@ -2141,7 +2141,7 @@ async function archiveToday() {
   if (!gateway) { alert('请先设置网关地址'); return; }
 
   // 1. 输入日期
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
+  const now = new Date(Date.now() + 8 * 3600000);
   const defaultDate = now.toISOString().slice(0, 10);
   const date = prompt('请输入归档日期（YYYY-MM-DD）：', defaultDate);
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -2224,7 +2224,7 @@ function exportTxt() {
   if (messages.length === 0) { alert('没有可导出的消息'); return; }
   if (isExporting) { showStatus('正在导出中，请稍候...'); return; }
 
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
+  const now = new Date(Date.now() + 8 * 3600000);
   const defaultDate = now.toISOString().slice(0, 10);
   const date = prompt('导出哪天的消息？（YYYY-MM-DD，留空导出全部）：', defaultDate);
 
@@ -2266,13 +2266,22 @@ function exportTxt() {
     });
 
     const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `星月栖_${exportDate}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showStatus('已导出 TXT ✓');
+    if (navigator.share && isApp) {
+      const file = new File([blob], `星月栖_${exportDate}.txt`, { type: 'text/plain' });
+      navigator.share({ files: [file] }).then(() => {
+        showStatus('已导出 TXT ✓');
+      }).catch(() => {
+        showStatus('导出取消');
+      });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `星月栖_${exportDate}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus('已导出 TXT ✓');
+    }
   } finally {
     isExporting = false;
   }
