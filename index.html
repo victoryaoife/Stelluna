@@ -1959,8 +1959,7 @@ async function generateResponse(aiIndex, images = null) {
         }
       }
     }
-    
-    showStatus('通知检查: hidden=' + document.hidden + ' isApp=' + isApp + ' content长度=' + fullContent.length, 8000);
+
     
     if (document.hidden || wasHiddenDuringGeneration) {
       if (isApp) {
