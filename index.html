@@ -2101,17 +2101,23 @@ async function checkProactive() {
   const recentMsgs = buildApiMessages().slice(-6);
   let usageInfo = '';
   if (isApp) {
-    const apps = await getScreenUsage(elapsed);
-    if (apps && apps.length > 0) {
-      usageInfo = '她沉默期间的屏幕使用情况：';
-      for (let i = 0; i < apps.length; i++) {
-        const a = typeof apps[i] === 'string' ? JSON.parse(apps[i]) : apps[i];
-        usageInfo += '\n- ' + a.name + ' ' + a.minutes + '分钟';
+    try {
+      const apps = await getScreenUsage(elapsed);
+      if (apps && apps.length > 0) {
+        usageInfo = '她沉默期间的屏幕使用情况：';
+        for (let i = 0; i < apps.length; i++) {
+          const a = typeof apps[i] === 'string' ? JSON.parse(apps[i]) : apps[i];
+          usageInfo += '\n- ' + a.name + ' ' + a.minutes + '分钟';
+        }
+      } else if (apps && apps.length === 0) {
+        usageInfo = '她沉默期间没有使用手机。';
       }
-    } else if (apps && apps.length === 0) {
-      usageInfo = '她沉默期间没有使用手机。';
+    } catch (e) {
+      showStatus('⚠ 使用时间获取失败: ' + e.message, 5000);
+      usageInfo = '';
     }
   }
+
 
 
   try {
