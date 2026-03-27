@@ -1971,8 +1971,6 @@ async function generateResponse(aiIndex, images = null) {
               title: '听月发来消息 💓',
               body: fullContent.slice(0, 80) + (fullContent.length > 80 ? '...' : ''),
               id: Math.floor(Math.random() * 2147483647),
-              schedule: { at: new Date() },
-              sound: null,
               smallIcon: 'ic_launcher',
             }]
           });
