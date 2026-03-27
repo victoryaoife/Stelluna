@@ -2076,6 +2076,7 @@ function resetProactiveTimer() {
 }
 
 async function checkProactive() {
+  showStatus('🔍 checkProactive触发', 5000);
   if (isGenerating) return;
   if (window._proactivePending) return;
   if (window._proactiveCooldown) return;
@@ -2111,6 +2112,7 @@ async function checkProactive() {
         }
         showStatus('📱 ' + usageInfo, 8000);
       } else if (apps && apps.length === 0) {
+        showStatus('📱 没有检测到app使用', 8000);
         usageInfo = '她沉默期间没有使用手机。';
       }
     } catch (e) {
