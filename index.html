@@ -2238,7 +2238,7 @@ async function archiveToday() {
 }
 
 // ====== 导出 TXT ======
-function exportTxt() {
+async function exportTxt() {
   if (messages.length === 0) { alert('没有可导出的消息'); return; }
   if (isExporting) { showStatus('正在导出中，请稍候...'); return; }
 
@@ -2284,17 +2284,25 @@ function exportTxt() {
     });
 
     const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
-    if (navigator.share && isApp) {
-      const file = new File([blob], `星月栖_${exportDate}.txt`, { type: 'text/plain' });
-      navigator.share({ files: [file] }).then(() => {
-        showStatus('已导出 TXT ✓');
-      }).catch(() => {
-        showStatus('导出取消');
-      });
+    if (isApp) {
+      try {
+        const { Filesystem } = Capacitor.Plugins;
+        const fileName = `星月栖_${exportDate}.txt`;
+        const base64 = await blobToBase64(blob);
+        await Filesystem.writeFile({
+          path: 'Download/' + fileName,
+          data: base64,
+          directory: 'EXTERNAL_STORAGE',
+          recursive: true,
+        });
+        showStatus('已保存到 Download/' + fileName + ' ✓');
+      } catch (e) {
+        showStatus('⚠ 导出失败: ' + e.message, 5000);
+      }
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+        a.href = url;
       a.download = `星月栖_${exportDate}.txt`;
       a.click();
       URL.revokeObjectURL(url);
@@ -2303,6 +2311,14 @@ function exportTxt() {
   } finally {
     isExporting = false;
   }
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
 }
 
 
