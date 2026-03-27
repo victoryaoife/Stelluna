@@ -3168,6 +3168,24 @@ async function requestLocationPermission() {
   }
 }
 
+// ====== 获取屏幕时间 ======
+async function getScreenUsage(minutes) {
+  if (!isApp) return null;
+  try {
+    const { UsageStats } = Capacitor.Plugins;
+    const result = await UsageStats.getUsage({ minutes: minutes });
+    if (!result.hasPermission) {
+      await UsageStats.openSettings();
+      return null;
+    }
+    return result.apps;
+  } catch (e) {
+    console.error('屏幕使用时间获取失败:', e);
+    return null;
+  }
+}
+
+
 async function initStatusBar() {
   try {
     const { StatusBar } = Capacitor.Plugins;
