@@ -1781,12 +1781,13 @@ async function sendMessage() {
     }
   }
   
-  // AI占位
-  messages.push({
-    role: 'assistant',
-    versions: [{ content: '', timestamp: '', thinking: '' }],
-    activeVersion: 0,
-  });
+    // AI占位
+    messages.push({
+      role: 'assistant',
+      versions: [{ content: '', timestamp: new Date().toISOString(), thinking: '' }],
+      activeVersion: 0,
+    });
+
   saveMessages();
   renderAll();
 
@@ -2097,6 +2098,20 @@ async function checkProactive() {
 
   const config = buildConfig();
   const recentMsgs = buildApiMessages().slice(-6);
+  let usageInfo = '';
+  if (isApp) {
+    const apps = await getScreenUsage(elapsed);
+    if (apps && apps.length > 0) {
+      usageInfo = '她沉默期间的屏幕使用情况：';
+      for (let i = 0; i < apps.length; i++) {
+        const a = typeof apps[i] === 'string' ? JSON.parse(apps[i]) : apps[i];
+        usageInfo += '\n- ' + a.name + ' ' + a.minutes + '分钟';
+      }
+    } else if (apps && apps.length === 0) {
+      usageInfo = '她沉默期间没有使用手机。';
+    }
+  }
+
 
   try {
     const res = await fetch(gateway + '/api/proactive-check', {
@@ -2106,6 +2121,7 @@ async function checkProactive() {
         messages: recentMsgs,
         config,
         elapsed_minutes: elapsed,
+        screen_usage: usageInfo,
       }),
     });
     const result = await res.json();
