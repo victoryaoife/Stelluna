@@ -11,7 +11,7 @@
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
-  --bg: #C4DBF2;
+  --bg: #DCECFC;
   --surface: #75ABE0;
   --surface2: #C8D9EF;
   --border: #F2F7FF;
@@ -1852,12 +1852,6 @@ async function generateResponse(aiIndex, images = null) {
 
   const isProactive = messages[aiIndex]?.isProactive || false;
 
-  if (isProactive) {
-    showStatus('主动消息配置: URL=' + (config.proactive_api_url || '空') 
-      + ' Model=' + (config.proactive_model || '空') 
-      + ' Key=' + (config.proactive_api_key ? '已填' : '空'), 10000);
-  }
-
   const requestBody = {
     messages: apiMessages,
     system_prompt: getSetting('sysPrompt', ''),
@@ -2076,7 +2070,6 @@ function resetProactiveTimer() {
 }
 
 async function checkProactive() {
-  showStatus('🔍 checkProactive触发', 5000);
   if (isGenerating) return;
   if (window._proactivePending) return;
   if (window._proactiveCooldown) return;
@@ -2100,7 +2093,6 @@ async function checkProactive() {
 
   const config = buildConfig();
   const recentMsgs = buildApiMessages().slice(-6);
-  showStatus('🔍 到达usageInfo isApp=' + isApp + ' elapsed=' + elapsed, 8000);
   let usageInfo = '';
   if (isApp) {
     try {
