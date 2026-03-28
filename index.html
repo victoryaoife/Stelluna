@@ -2046,7 +2046,7 @@ async function checkBgProactive() {
     for (const item of bgMsgs) {
       messages.push({
         role: 'assistant',
-        versions: [{ content: item.content, timestamp: item.created_at || new Date().toISOString() }],
+        versions: [{ content: item.content, timestamp: item.updated_at || item.created_at || new Date().toISOString() }],
         activeVersion: 0,
         source: 'proactive_bg',
         isProactive: true,
