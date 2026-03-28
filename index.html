@@ -2035,8 +2035,38 @@ function startProactiveTimer() {
   proactiveTimer = setInterval(() => checkProactive(), delay);
 }
 
+async function checkBgProactive() {
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
+  try {
+    const res = await fetch(gateway + '/api/status');
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    const bgMsgs = data.filter(s => s.type === 'proactive_msg');
+    for (const item of bgMsgs) {
+      messages.push({
+        role: 'assistant',
+        versions: [{ content: item.content, timestamp: item.created_at || new Date().toISOString() }],
+        activeVersion: 0,
+        source: 'proactive_bg',
+        isProactive: true,
+      });
+      await fetch(gateway + '/api/status/' + item.id, { method: 'DELETE' });
+    }
+    if (bgMsgs.length > 0) {
+      saveMessages();
+      renderAll();
+      scrollToBottom();
+    }
+  } catch (e) {
+    console.error('拉取后台主动消息失败:', e);
+  }
+}
+  
+
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && getSetting('proactiveEnabled') === 'true') {
+    checkBgProactive();
     let lastUserTs = null;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'user') {
