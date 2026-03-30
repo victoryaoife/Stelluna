@@ -1444,6 +1444,24 @@ function toggleCodeCollapse(id) {
   const btn = el.querySelector('.code-expand-btn');
   if (btn) btn.textContent = isCollapsed ? '收起' : btn.textContent.replace('收起', '展开全部');
 }
+function extractThinking(text) {
+  const open = '<thinking>', close = '</thinking>';
+  const start = text.indexOf(open);
+  if (start === -1) return { display: text, thinking: '', inProgress: false };
+  const end = text.indexOf(close);
+  if (end === -1) {
+    return {
+      display: text.substring(0, start),
+      thinking: text.substring(start + open.length),
+      inProgress: true,
+    };
+  }
+  return {
+    display: (text.substring(0, start) + text.substring(end + close.length)).trim(),
+    thinking: text.substring(start + open.length, end).trim(),
+    inProgress: false,
+  };
+}
 function formatTime(ts) {
   if (!ts) return '';
   const d = new Date(ts);
@@ -1938,20 +1956,27 @@ async function generateResponse(aiIndex, images = null) {
               continue;
             }
 
+
             if (delta.content) {
               if (inThinking) inThinking = false;
               fullContent += delta.content;
+              const ext = extractThinking(fullContent);
+              thinkingContent = ext.thinking || thinkingContent;
+
               let displayHtml = '';
-              if (thinkingContent) {
+              if (ext.thinking) {
                 displayHtml += '<div class="thinking-block">'
-                  + '<div class="thinking-toggle" onclick="toggleThinking(this)">'
-                  + '<span class="thinking-arrow">▶</span> 思考过程</div>'
-                  + '<div class="thinking-content">' + escapeHtml(thinkingContent) + '</div></div>';
+                  + '<div class="thinking-toggle"' + (ext.inProgress ? '' : ' onclick="toggleThinking(this)"') + '>'
+                  + '<span class="thinking-arrow' + (ext.inProgress ? ' open' : '') + '">▶</span> '
+                  + (ext.inProgress ? '思考中...' : '思考过程') + '</div>'
+                  + '<div class="thinking-content' + (ext.inProgress ? ' show' : '') + '">'
+                  + escapeHtml(ext.thinking) + '</div></div>';
               }
-              displayHtml += renderMarkdown(fullContent);
+              displayHtml += renderMarkdown(ext.display);
               aiBubble.innerHTML = displayHtml;
               scrollToBottom();
             }
+
           } catch (parseErr) {}
         }
       }
@@ -1998,8 +2023,9 @@ async function generateResponse(aiIndex, images = null) {
 
     // 把清理后的内容存入当前版本
     const finalVersion = messages[aiIndex].versions[messages[aiIndex].activeVersion];
-    finalVersion.content = fullContent;
-    finalVersion.thinking = thinkingContent;
+    const extracted = extractThinking(fullContent);
+    finalVersion.content = extracted.display;
+    finalVersion.thinking = thinkingContent || extracted.thinking;
     finalVersion.timestamp = new Date().toISOString();
     saveMessages();
     renderAll();
