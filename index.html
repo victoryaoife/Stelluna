@@ -1493,6 +1493,12 @@ function createMsgEl(msg, index) {
   const activeV = msg.versions ? msg.versions[msg.activeVersion || 0] : msg;
   const content = activeV.content || '';
   const thinking = activeV.thinking || '';
+  // 兼容旧消息：content里残留的thinking标签提取出来
+  if (!thinking && content.includes('<thinking>')) {
+    const ext = extractThinking(content);
+    content = ext.display;
+    thinking = ext.thinking;
+  }
   const timestamp = activeV.timestamp || msg.timestamp;
   const images = activeV.images || [];
 
