@@ -2068,19 +2068,28 @@ function startProactiveTimer() {
 }
 
 async function checkBgProactive() {
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
   try {
-    const res = await fetch(GATEWAY + '/api/supabase?table=status_cache&query=type%3Deq.proactive_msg%26order%3Dcreated_at', {
+    const res = await fetch(gateway + '/api/supabase?table=status_cache&query=type%3Deq.proactive_msg%26order%3Dcreated_at', {
       headers: { 'Content-Type': 'application/json' }
     });
     const msgs = await res.json();
     if (!Array.isArray(msgs) || msgs.length === 0) return;
 
     for (const msg of msgs) {
-      appendMsg('assistant', msg.content, null, 'proactive');
+      messages.push({
+        role: 'assistant',
+        versions: [{ content: msg.content, timestamp: new Date().toISOString(), thinking: '' }],
+        activeVersion: 0,
+        isProactive: true,
+        source: 'proactive',
+      });
     }
+    saveMessages();
+    renderAll();
 
-    // 批量清空
-    await fetch(GATEWAY + '/api/supabase?table=status_cache&query=type%3Deq.proactive_msg', {
+    await fetch(gateway + '/api/supabase?table=status_cache&query=type%3Deq.proactive_msg', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -2088,6 +2097,7 @@ async function checkBgProactive() {
     console.error('checkBgProactive error:', e);
   }
 }
+
   
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
