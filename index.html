@@ -2071,13 +2071,18 @@ async function checkBgProactive() {
   const gateway = getSetting('gateway');
   if (!gateway) return;
   try {
-    const res = await fetch(gateway + '/api/supabase?table=status_cache&query=type%3Deq.proactive_msg%26order%3Dcreated_at', {
+    const res = await fetch(gateway + '/api/status', {
       headers: { 'Content-Type': 'application/json' }
     });
-    const msgs = await res.json();
-    if (!Array.isArray(msgs) || msgs.length === 0) return;
+    const allStatus = await res.json();
+    if (!Array.isArray(allStatus)) return;
 
-    for (const msg of msgs) {
+    const proactiveMsgs = allStatus
+      .filter(s => s.type === 'proactive_msg')
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    if (proactiveMsgs.length === 0) return;
+
+    for (const msg of proactiveMsgs) {
       messages.push({
         role: 'assistant',
         versions: [{ content: msg.content, timestamp: new Date().toISOString(), thinking: '' }],
@@ -2085,14 +2090,13 @@ async function checkBgProactive() {
         isProactive: true,
         source: 'proactive',
       });
+      await fetch(gateway + '/api/status/' + msg.id, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     saveMessages();
     renderAll();
-
-    await fetch(gateway + '/api/supabase?table=status_cache&query=type%3Deq.proactive_msg', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
-    });
   } catch (e) {
     console.error('checkBgProactive error:', e);
   }
