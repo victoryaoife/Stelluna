@@ -3075,6 +3075,7 @@ async function detectStatusTags(content) {
       }
     }
     cleaned = cleaned.replace(m[0], '');
+    statusRegex.lastIndex = 0; 
   }
 
   const cacheRegex = /<<缓存>>([\s\S]*?)<<\/缓存>>/g;
@@ -3094,6 +3095,7 @@ async function detectStatusTags(content) {
       }
     }
     cleaned = cleaned.replace(m[0], '');
+    cacheRegex.lastIndex = 0; 
   }
 
   const calendarRegex = /<<日历>>([\s\S]*?)<<\/日历>>/g;
@@ -3116,6 +3118,7 @@ async function detectStatusTags(content) {
       }
     }
     cleaned = cleaned.replace(m[0], '');
+    calendarRegex.lastIndex = 0; 
   }
 
   const memoryRegex = /<<记忆>>([\s\S]*?)<<\/记忆>>/g;
@@ -3142,6 +3145,7 @@ async function detectStatusTags(content) {
       }
     }
     cleaned = cleaned.replace(m[0], '');
+    memoryRegex.lastIndex = 0;
   }
 
   const updateMemRegex = /<<改记忆>>([\s\S]*?)<<\/改记忆>>/g;
@@ -3168,6 +3172,7 @@ async function detectStatusTags(content) {
       }
     }
     cleaned = cleaned.replace(m[0], '');
+    updateMemRegex.lastIndex = 0;
   }
 
   // 处理日记标记
@@ -3201,6 +3206,7 @@ async function detectStatusTags(content) {
       }
     }
     cleaned = cleaned.replace(m[0], '');
+    diaryRegex.lastIndex = 0;
   }
 
 
