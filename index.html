@@ -2581,7 +2581,7 @@ async function searchMemory() {
 
   try {
     if (currentMemoryTab === 'core') {
-      const res = await fetch(gateway + '/api/memory/core?category=' + encodeURIComponent(keyword));
+      const res = await fetch(gateway + '/api/memory/core?keyword=' + encodeURIComponent(keyword));
       const data = await res.json();
       content.innerHTML = Array.isArray(data) && data.length > 0
         ? data.map(m => `<div class="memory-card"><h4>[${escapeHtml(m.category)}] ${escapeHtml(m.title)}</h4><p>${escapeHtml(m.content).replace(/\n/g, '<br>')}</p></div>`).join('')
@@ -2623,51 +2623,107 @@ async function searchMemory() {
     content.innerHTML = `<p style="color:var(--danger);">搜索失败：${escapeHtml(e.message)}</p>`;
   }
 }
-
-async function editMemory(id) {
-  const gateway = getSetting('gateway');
-  if (!gateway) return;
-
-  const newContent = prompt('编辑记忆内容：');
-  if (newContent === null) return;
-
-  try {
-    const res = await fetch(gateway + '/api/memory/core/' + id, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: newContent }),
-    });
-    const result = await res.json();
-    if (result.success) {
-      showStatus('记忆更新成功 ✓');
-      loadMemoryTab();
-    } else {
-      showStatus('更新失败');
-    }
-  } catch (e) {
-    showStatus('更新失败：' + e.message);
-  }
-}
-
-async function deleteMemory(id) {
-  if (!confirm('确定要删除这条记忆吗？')) return;
-
+// ====== 核心记忆编辑 ======
+  async function editMemory(id) {
   const gateway = getSetting('gateway');
   if (!gateway) return;
 
   try {
-    const res = await fetch(gateway + '/api/memory/core/' + id, { method: 'DELETE' });
-    const result = await res.json();
-    if (result.success) {
-      showStatus('已删除 ✓');
-      loadMemoryTab();
-    } else {
-      showStatus('删除失败');
+    const res = await fetch(gateway + '/api/memory/core/' + id);
+    const mem = await res.json();
+    if (!mem || !mem.content) {
+      showStatus('未找到该记忆');
+      return;
     }
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const editor = document.createElement('div');
+    editor.style.cssText = 'background:var(--surface);border-radius:14px;padding:20px;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;gap:12px;';
+
+    const heading = document.createElement('h3');
+    heading.textContent = '📋 编辑记忆 #' + id;
+    heading.style.cssText = 'font-size:16px;color:var(--text);';
+
+    const catRow = document.createElement('div');
+    catRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    const catLabel = document.createElement('label');
+    catLabel.textContent = '分类：';
+    catLabel.style.cssText = 'font-size:13px;color:var(--text2);white-space:nowrap;';
+    const catInput = document.createElement('input');
+    catInput.value = mem.category || '';
+    catInput.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;outline:none;';
+    catRow.appendChild(catLabel);
+    catRow.appendChild(catInput);
+
+    const titleRow = document.createElement('div');
+    titleRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    const titleLabel = document.createElement('label');
+    titleLabel.textContent = '标题：';
+    titleLabel.style.cssText = 'font-size:13px;color:var(--text2);white-space:nowrap;';
+    const titleInput = document.createElement('input');
+    titleInput.value = mem.title || '';
+    titleInput.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;outline:none;';
+    titleRow.appendChild(titleLabel);
+    titleRow.appendChild(titleInput);
+
+    const textarea = document.createElement('textarea');
+    textarea.value = mem.content;
+    textarea.style.cssText = 'flex:1;min-height:300px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:10px;font-size:14px;line-height:1.6;resize:vertical;outline:none;font-family:inherit;';
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '保存';
+    saveBtn.style.cssText = 'background:var(--accent);color:white;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:14px;';
+    saveBtn.onclick = async () => {
+      const updates = { content: textarea.value };
+      const newCat = catInput.value.trim();
+      const newTitle = titleInput.value.trim();
+      if (newCat !== (mem.category || '')) updates.category = newCat;
+      if (newTitle !== (mem.title || '')) updates.title = newTitle;
+      try {
+        const patchRes = await fetch(gateway + '/api/memory/core/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        const result = await patchRes.json();
+        if (result.success) {
+          showStatus('记忆更新成功 ✓');
+          overlay.remove();
+          loadMemoryTab();
+        } else {
+          showStatus('更新失败');
+        }
+      } catch (e) {
+        showStatus('更新失败：' + e.message);
+      }
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.style.cssText = 'background:var(--surface2);color:var(--text2);border:1px solid var(--border);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:14px;';
+    cancelBtn.onclick = () => overlay.remove();
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(saveBtn);
+
+    editor.appendChild(heading);
+    editor.appendChild(catRow);
+    editor.appendChild(titleRow);
+    editor.appendChild(textarea);
+    editor.appendChild(btnRow);
+    overlay.appendChild(editor);
+    document.body.appendChild(overlay);
+
   } catch (e) {
-    showStatus('删除失败：' + e.message);
+    showStatus('加载记忆失败：' + e.message);
   }
 }
+
 // ====== 日记编辑 ======
 async function editDiary(date) {
   const gateway = getSetting('gateway');
