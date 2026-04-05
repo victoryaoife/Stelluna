@@ -1949,6 +1949,22 @@ async function generateResponse(aiIndex, images = null) {
 
           try {
             const json = JSON.parse(dataStr);
+            // 处理图片描述回写
+            if (json.type === 'image_desc' && json.descriptions) {
+              const userMsgIndex = aiIndex - 1;
+              if (userMsgIndex >= 0 && messages[userMsgIndex].role === 'user') {
+                const userV = messages[userMsgIndex].versions[messages[userMsgIndex].activeVersion || 0];
+                for (const [placeholder, desc] of Object.entries(json.descriptions)) {
+                  userV.content = userV.content.replace(placeholder, `[图片：${desc}]`);
+                }
+                saveMessages();
+                const userEl = document.querySelector('.msg[data-index="' + userMsgIndex + '"]');
+                if (userEl) {
+                  userEl.querySelector('.msg-bubble').innerHTML = renderMarkdown(userV.content);
+                }
+              }
+              continue;
+            }
             const delta = json.choices?.[0]?.delta;
             if (!delta) continue;
 
