@@ -1418,6 +1418,20 @@ function renderMarkdown(text) {
         </div>`;
       }
     );
+    // 标记折叠框
+    const tagTypes = [
+      { regex: /&lt;&lt;状态&gt;&gt;([\s\S]*?)&lt;&lt;\/状态&gt;&gt;/g, icon: '📝', label: '状态已记录' },
+      { regex: /&lt;&lt;缓存&gt;&gt;([\s\S]*?)&lt;&lt;\/缓存&gt;&gt;/g, icon: '📝', label: '缓存已更新' },
+      { regex: /&lt;&lt;日历&gt;&gt;([\s\S]*?)&lt;&lt;\/日历&gt;&gt;/g, icon: '📝', label: '日历已添加' },
+      { regex: /&lt;&lt;记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/记忆&gt;&gt;/g, icon: '📝', label: '记忆已创建' },
+      { regex: /&lt;&lt;改记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/改记忆&gt;&gt;/g, icon: '📝', label: '记忆已更新' },
+      { regex: /&lt;&lt;日记&gt;&gt;([\s\S]*?)&lt;&lt;\/日记&gt;&gt;/g, icon: '📝', label: '日记已写入' },
+    ];
+    for (const tag of tagTypes) {
+      html = html.replace(tag.regex, (match, content) => {
+        return `<div class="thinking-block"><div class="thinking-toggle" onclick="toggleThinking(this)"><span class="thinking-arrow">▶</span> ${tag.icon} ${tag.label}</div><div class="thinking-content">${content}</div></div>`;
+      });
+    }
     return html;
   } catch { return text.replace(/\n/g, '<br>'); }
 }
@@ -3147,8 +3161,6 @@ async function detectStatusTags(content) {
         showStatus('⚠ 状态存储失败: ' + e.message, 3000);
       }
     }
-    cleaned = cleaned.replace(m[0], '');
-    statusRegex.lastIndex = 0; 
   }
 
   const cacheRegex = /<<缓存>>([\s\S]*?)<<\/缓存>>/g;
@@ -3167,8 +3179,6 @@ async function detectStatusTags(content) {
         showStatus('⚠ 缓存存储失败: ' + e.message, 3000);
       }
     }
-    cleaned = cleaned.replace(m[0], '');
-    cacheRegex.lastIndex = 0; 
   }
 
   const calendarRegex = /<<日历>>([\s\S]*?)<<\/日历>>/g;
@@ -3190,8 +3200,6 @@ async function detectStatusTags(content) {
         }
       }
     }
-    cleaned = cleaned.replace(m[0], '');
-    calendarRegex.lastIndex = 0; 
   }
 
   const memoryRegex = /<<记忆>>([\s\S]*?)<<\/记忆>>/g;
@@ -3217,8 +3225,6 @@ async function detectStatusTags(content) {
         }
       }
     }
-    cleaned = cleaned.replace(m[0], '');
-    memoryRegex.lastIndex = 0;
   }
 
   const updateMemRegex = /<<改记忆>>([\s\S]*?)<<\/改记忆>>/g;
@@ -3244,8 +3250,6 @@ async function detectStatusTags(content) {
         }
       }
     }
-    cleaned = cleaned.replace(m[0], '');
-    updateMemRegex.lastIndex = 0;
   }
 
   // 处理日记标记
@@ -3278,8 +3282,6 @@ async function detectStatusTags(content) {
         }
       }
     }
-    cleaned = cleaned.replace(m[0], '');
-    diaryRegex.lastIndex = 0;
   }
 
 
