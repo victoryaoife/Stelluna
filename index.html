@@ -1465,6 +1465,7 @@ function extractThinking(text) {
 function formatTime(ts) {
   if (!ts) return '';
   const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 function scrollToBottom() {
@@ -2101,7 +2102,7 @@ async function checkBgProactive() {
     for (const msg of proactiveMsgs) {
       messages.push({
         role: 'assistant',
-        versions: [{ content: msg.content, timestamp: new Date().toISOString(), thinking: '' }],
+        versions: [{ content: msg.content, timestamp: msg.created_at ? new Date(msg.created_at).toISOString() : new Date().toISOString(), thinking: '' }],
         activeVersion: 0,
         isProactive: true,
         source: 'proactive',
@@ -2475,7 +2476,7 @@ function parseChatlog(content) {
       if (currentRole) {
         result.push({
           role: currentRole === '星语' ? 'user' : 'assistant',
-          versions: [{ content: currentContent.trim(), timestamp: currentTimestamp }],
+          versions: [{ content: currentContent.trim(), timestamp: currentTimestamp || '' }],
           activeVersion: 0,
         });
       }
@@ -2492,7 +2493,7 @@ function parseChatlog(content) {
   if (currentRole) {
     result.push({
       role: currentRole === '星语' ? 'user' : 'assistant',
-      versions: [{ content: currentContent.trim(), timestamp: currentTimestamp }],
+      versions: [{ content: currentContent.trim(), timestamp: currentTimestamp || '' }],
       activeVersion: 0,
     });
   }
