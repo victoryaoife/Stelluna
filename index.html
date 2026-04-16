@@ -3267,6 +3267,16 @@ async function detectStatusTags(content) {
         diaryDate = parts[0].trim();
         periodStatus = null;
         diaryContent = parts[1].trim();
+      } else {
+        const dateMatch = val.match(/(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})/);
+        if (dateMatch) {
+          diaryDate = dateMatch[1] + '-' + dateMatch[2].padStart(2,'0') + '-' + dateMatch[3].padStart(2,'0');
+        } else {
+          const now = new Date(Date.now() + 8 * 3600000);
+          diaryDate = now.toISOString().slice(0, 10);
+        }
+        periodStatus = null;
+        diaryContent = val;
       }
       if (diaryDate && diaryContent) {
         try {
