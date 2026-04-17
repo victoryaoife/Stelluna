@@ -3253,6 +3253,7 @@ async function detectStatusTags(content) {
   }
 
   // 处理日记标记
+  console.log('=== 日记检测开始，cleaned内容:', cleaned.substring(0, 300));
   const diaryRegex = /<<日记>>([\s\S]*?)<<\/日记>>/g;
   while ((m = diaryRegex.exec(cleaned)) !== null) {
     const val = m[1].trim();
