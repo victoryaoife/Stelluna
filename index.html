@@ -2099,7 +2099,6 @@ function startProactiveTimer() {
 }
 
 async function checkBgProactive() {
-  showStatus('proactive triggered: ' + new Date().toLocaleTimeString())      // 调试DEBUG用
   const gateway = getSetting('gateway');
   if (!gateway) return;
   try {
@@ -2126,6 +2125,7 @@ async function checkBgProactive() {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
+      showStatus('proactive result: ' + JSON.stringify(data))        //DEBUG调试用
     }
     saveMessages();
     renderAll();
