@@ -2098,10 +2098,13 @@ function startProactiveTimer() {
   proactiveTimer = setInterval(() => checkProactive(), delay);
 }
 
+let isCheckingProactive = false;  
+
 async function checkBgProactive() {
-  showStatus('🔍 checkBgProactive触发', 5000);                            //debug调试
+  if (isCheckingProactive) return;
+  isCheckingProactive = true;
   const gateway = getSetting('gateway');
-  if (!gateway) return;
+  if (!gateway) { isCheckingProactive = false; return; }
   try {
     const res = await fetch(gateway + '/api/status', {
       headers: { 'Content-Type': 'application/json' }
@@ -2112,7 +2115,6 @@ async function checkBgProactive() {
     const proactiveMsgs = allStatus
       .filter(s => s.type === 'proactive_msg')
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    showStatus('🔍 主动消息数: ' + proactiveMsgs.length, 5000);                           //debug调试
     if (proactiveMsgs.length === 0) return;
 
     for (const msg of proactiveMsgs) {
@@ -2127,12 +2129,13 @@ async function checkBgProactive() {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
-      showStatus('proactive result: ' + JSON.stringify(data))        //DEBUG调试用
     }
     saveMessages();
-    renderAll();
+    setTimeout(() => { renderAll(); }, 150);
   } catch (e) {
     console.error('checkBgProactive error:', e);
+  } finally {
+    isCheckingProactive = false;
   }
 }
 
