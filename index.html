@@ -2099,6 +2099,7 @@ function startProactiveTimer() {
 }
 
 async function checkBgProactive() {
+  showStatus('🔍 checkBgProactive触发', 5000);                            //debug调试
   const gateway = getSetting('gateway');
   if (!gateway) return;
   try {
@@ -2111,6 +2112,7 @@ async function checkBgProactive() {
     const proactiveMsgs = allStatus
       .filter(s => s.type === 'proactive_msg')
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    showStatus('🔍 主动消息数: ' + proactiveMsgs.length, 5000);                           //debug调试
     if (proactiveMsgs.length === 0) return;
 
     for (const msg of proactiveMsgs) {
