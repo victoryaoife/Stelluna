@@ -23,14 +23,6 @@
   --ai-bg: rgba(247, 252, 255, 0.65);
   --danger: #ED7E7E;
   --success: #76E3D2;
-  --header-bg: rgba(255, 255, 255, 0.55);
-  --header-border: rgba(255, 255, 255, 0.3);
-  --header-text: #436999;
-  --user-text: #1556A1;
-  --ai-text: #3C77B0;
-  --input-text: #023761;
-  --input-area-bg: rgba(255, 255, 255, 0.55);
-  --input-area-border: rgba(255, 255, 255, 0.3);
   --radius: 15px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -45,18 +37,30 @@
   --accent2: #06AD56;
   --user-bg: #95EC69;
   --ai-bg: #FFFFFF;
-  --header-bg: #EDEDED;
-  --header-border: #D9D9D9;
-  --header-text: #111111;
-  --user-text: #111111;
-  --ai-text: #111111;
-  --input-text: #111111;
-  --input-area-bg: #F7F7F7;
-  --input-area-border: #D9D9D9;
 }
-[data-theme="wx"] body {
-  background-image: none;
-  background-color: #EDEDED;
+[data-theme="warm"] {
+  --bg: #1a1410;
+  --surface: #2e2620;
+  --surface2: #3d3328;
+  --border: #4a3f32;
+  --text: #f0e8e0;
+  --text2: #b0a898;
+  --accent: #ca9a6c;
+  --accent2: #d8b48a;
+  --user-bg: #f0e8e0;
+  --ai-bg: #FFF7F0;
+}
+[data-theme="forest"] {
+  --bg: #0f1a14;
+  --surface: #1a2e22;
+  --surface2: #234032;
+  --border: #2a4a3a;
+  --text: #e0f0e8;
+  --text2: #98b0a0;
+  --accent: #6cca8d;
+  --accent2: #8ad8a7;
+  --user-bg: #e0f0e8;
+  --ai-bg: #F0FFF7;
 }
 html, body {
   height:100%; 
@@ -105,10 +109,10 @@ html, body {
 #header {
   display:flex; align-items:center; justify-content:space-between;
   padding:12px 16px; 
-  background: var(--header-bg);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--header-border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
   padding-top: max(12px, env(safe-area-inset-top));
   position: relative;
 }
@@ -117,7 +121,6 @@ html, body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  color: var(--header-text);
 }
 .header-left, .header-right { display:flex; gap:4px; }
 #header button {
@@ -137,15 +140,12 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 .msg {
-  display:grid; margin-bottom:12px;
+  display:flex; flex-direction:column; margin-bottom:12px;
   max-width:100%; animation: fadeIn 0.2s ease;
-  grid-template-columns: 1fr;
-  gap: 0 8px;
-  padding: 0 4px;
-  align-items: start;
 }
 @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
-.msg.user { grid-template-columns: 1fr; }
+.msg.user { align-self:flex-end; align-items:flex-end; }
+.msg.ai { align-self:flex-start; align-items:flex-start; }
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   display: inline-block;
@@ -156,21 +156,21 @@ html, body {
   font-weight: 500;
   line-height: 1.4;
   word-break: break-word;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(16px); 
-  -webkit-backdrop-filter: blur(16px); 
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 .msg.user .msg-bubble {
-  color: var(--user-text); background:var(--user-bg);
+  color: #1556A1; background:var(--user-bg);
   border-bottom-right-radius:6px;
 }
 .msg.ai .msg-bubble {
-  color: var(--ai-text); background:var(--ai-bg);
+  color: #3C77B0; background:var(--ai-bg);
   border-bottom-left-radius:6px;
 }
-.msg-time { font-size:11px; color:var(--text2); padding:0; }
+.msg-time { font-size:13px; color:var(--text2); margin-top:3px; padding:0 4px; }
 .msg-bubble p { margin:0.4em 0; }
 .msg-bubble p:first-child { margin-top:0; }
 .msg-bubble p:last-child { margin-bottom:0; }
@@ -225,109 +225,17 @@ html, body {
   list-style-position: inside;
   padding-left: 4px;
 }
-
-/* ====== 头像 ====== */
-.msg-avatar {
-  display: none;
-  grid-row: 1;
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.msg.ai .msg-avatar {
-  grid-column: 1;
-  background: var(--ai-bg);
-  color: var(--ai-text);
-}
-.msg.user .msg-avatar {
-  grid-column: 2;
-  background: var(--user-bg);
-  color: var(--user-text);
-}
-
-/* ====== 气泡容器 ====== */
-.msg-bubbles {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  grid-row: 1;
-  min-width: 0;
-}
-.msg.ai .msg-bubbles {
-  grid-column: 1;
-  align-items: flex-start;
-}
-.msg.user .msg-bubbles {
-  grid-column: 1;
-  align-items: flex-end;
-}
-
-/* ====== 分段气泡 ====== */
-.msg.ai .msg-bubble.grouped {
-  border-top-left-radius: 6px;
-  border-bottom-left-radius: 6px;
-}
-.msg.user .msg-bubble.grouped {
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-
-/* ====== 底部元数据行 ====== */
-.msg-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-  grid-row: 2;
-}
-.msg.ai .msg-meta {
-  grid-column: 1;
-  padding-left: 4px;
-}
-.msg.user .msg-meta {
-  grid-column: 1;
-  justify-content: flex-end;
-  padding-right: 4px;
-}
-
-/* ====== 元数据按钮 ====== */
-.meta-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text2);
-  font-size: 12px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.msg:hover .meta-btn, .msg:active .meta-btn {
-  opacity: 1;
-}
-
-/* ====== 编辑textarea ====== */
-.edit-textarea {
-  width: 100%;
-  min-height: 120px;
-  background: var(--surface2);
-  border: 1px solid var(--accent);
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  resize: vertical;
-  outline: none;
-  font-family: inherit;
-}
   
+.msg-actions {
+  display:flex; gap:6px; margin-top:3px; align-items:center;
+  opacity:0; transition:opacity 0.2s;
+}
+.msg:hover .msg-actions, .msg:active .msg-actions { opacity:1; }
+.msg-actions button {
+  background:var(--surface2); border:1px solid var(--border);
+  color:var(--text2); font-size:15px; padding:2px 8px;
+  border-radius:6px; cursor:pointer;
+}
 .version-nav { font-size:13px; color:var(--text2); }
 .edit-actions { display:flex; gap:6px; margin-top:4px; }
 .edit-actions button {
@@ -342,8 +250,7 @@ html, body {
 }
 .stop-btn {
   display: inline-block;
-  margin: 4px 0 4px 0;
-  grid-column: 2;
+  margin: 4px 0 4px 48px;
   padding: 4px 12px;
   background: var(--danger, #e74c3c);
   color: white;
@@ -386,17 +293,17 @@ html, body {
   display:flex; align-items:flex-end; gap:8px;
   padding:10px 12px;
   padding-bottom: max(10px, var(--safe-bottom));
-  background: var(--input-area-bg);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--input-area-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
   padding-bottom: max(10px, var(--safe-bottom));
 }
 #input {
   flex:1; background:var(--surface2); border:1px solid var(--border);
-  color: var(--input-text); border-radius:20px; padding:10px 16px;
-  font-size:16px; line-height:1.2; resize:none; font-weight: 500;
-  max-height:800px; outline:none; font-family:inherit;
+  color: #023761; border-radius:20px; padding:10px 16px;
+  font-size:20px; line-height:1.4; resize:none; font-weight: 500;
+  max-height:120px; outline:none; font-family:inherit;
 }
 #input:focus { border-color:var(--accent); }
 #input::placeholder { color:var(--text2); }
@@ -428,22 +335,14 @@ html, body {
 
 /* ====== Panels (Settings / Memory / Wallet) ====== */
 .panel-overlay {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  position:fixed; inset:0; 
+  display:none; position:fixed; inset:0; 
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index:100; overflow-y:auto;
   padding: max(12px, env(safe-area-inset-top)) 16px 32px;
 }
-.panel-overlay.show {
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto;
-}
+.panel-overlay.show { display:block; }
 .panel-header {
   display:flex; justify-content:space-between; align-items:center;
   margin-bottom:20px;
@@ -699,6 +598,7 @@ html, body {
 <script src="capacitor.js"></script>  
 </head>
 <body>
+
 <!-- ====== Lock Screen ====== -->
 <div id="lock-screen">
   <div class="lock-emoji">🌙</div>
@@ -772,8 +672,8 @@ html, body {
   <div id="providers-list"></div>
   <div class="setting-row" style="margin-top:8px;">
     <input id="new-provider-name" placeholder="名称（如：主力站）" style="flex:0.5;">
-    <input id="new-provider-url" placeholder="API 地址（到 /v1）" style="flex:0.5;">
-    <input id="new-provider-key" placeholder="API Key" style="flex:0.5;">
+    <input id="new-provider-url" placeholder="API 地址（到 /v1）" style="flex:1;">
+    <input id="new-provider-key" type="password" placeholder="API Key" style="flex:1;">
     <button class="small-btn" onclick="addProvider()">添加</button>
   </div>
   <div class="setting-group" style="margin-top:12px;">
@@ -823,7 +723,7 @@ html, body {
     <label>小模型 (VICE)</label>
     <div class="setting-row">
       <input id="s-vice-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-vice-key" placeholder="Key" style="flex:1;">
+      <input id="s-vice-key" type="password" placeholder="Key" style="flex:1;">
       <input id="s-vice-model" placeholder="模型名" style="flex:0.6;">
     </div>
   </div>
@@ -831,7 +731,7 @@ html, body {
     <label>Embedding</label>
     <div class="setting-row">
       <input id="s-embed-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-embed-key" placeholder="Key" style="flex:1;">
+      <input id="s-embed-key" type="password" placeholder="Key" style="flex:1;">
       <input id="s-embed-model" placeholder="模型名" style="flex:0.6;">
     </div>
   </div>
@@ -839,7 +739,7 @@ html, body {
     <label>视觉模型</label>
     <div class="setting-row">
       <input id="s-vision-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-vision-key" placeholder="Key" style="flex:1;">
+      <input id="s-vision-key" type="password" placeholder="Key" style="flex:1;">
       <input id="s-vision-model" placeholder="模型名" style="flex:0.6;">
     </div>
   </div>
@@ -928,6 +828,8 @@ html, body {
     <div class="setting-row">
       <button class="small-btn" onclick="setTheme('default')" id="theme-default">🌙 深蓝夜空</button>
       <button class="small-btn" onclick="setTheme('wx')" id="theme-wx">🎭 伪装模式</button>
+      <button class="small-btn" onclick="setTheme('warm')" id="theme-warm">🕯 暖灯壁炉</button>
+      <button class="small-btn" onclick="setTheme('forest')" id="theme-forest">🌿 森林苔藓</button>
     </div>
   </div>
 
@@ -1057,39 +959,8 @@ html, body {
 
 html <script src="marked.min.js"></script>
 <script>
-    //  debug模块
-// ====== 强制清除Service Worker缓存 ======
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(regs) {
-    regs.forEach(function(r) { r.unregister(); });
-  });
-  if (window.caches) {
-    caches.keys().then(function(keys) {
-      keys.forEach(function(k) { caches.delete(k); });
-    });
-  }
-}
-
-// ====== 全局错误捕获（浮层显示） ======
-window.onerror = function(msg, url, line) {
-  var d = document.createElement('div');
-  d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:red;color:white;padding:10px;z-index:9999;font-size:13px;max-height:30vh;overflow:auto;';
-  d.textContent = 'JS错误: ' + msg + ' (行' + line + ')';
-  document.body.appendChild(d);
-};
-
-// ====== 捕获Promise异步错误 ======
-window.addEventListener('unhandledrejection', function(e) {
-  var d = document.createElement('div');
-  d.style.cssText = 'position:fixed;bottom:40px;left:0;right:0;background:orange;color:black;padding:10px;z-index:99999;font-size:12px;max-height:20vh;overflow:auto;';
-  d.textContent = 'Promise错误: ' + e.reason;
-  document.body.appendChild(d);
-});
-  //  debug模块
 // ====== 全局状态 ======
 let messages = [];
-let renderStart = 0;
-const RENDER_BATCH = 10;
 let activityLogs = [];
 let isGenerating = false;
 let pendingImage = null; // {url: base64, placeholder: string}
@@ -1160,27 +1031,6 @@ function unlock() {
   document.getElementById('app').style.display = 'flex';
   loadSettings();
   loadMessages();
-
-  // ====== 紧急备份 - 成功后删掉 ======
-  try {
-    const gw = localStorage.getItem('gateway');
-    if (gw && messages.length > 0) {
-      const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-      const archiveMsgs = messages.map(m => {
-        const v = m.versions ? m.versions[m.activeVersion || 0] : m;
-        return { role: m.role, content: v.content || '', timestamp: v.timestamp || m.timestamp || '' };
-      });
-      fetch(gw + '/api/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: today, messages: archiveMsgs, diary: null, config: buildConfig() }),
-      }).then(r => r.json()).then(res => {
-        if (res.success) document.title = '备份成功 ✓';
-      }).catch(() => {});
-    }
-  } catch(e) {}
-  // ====== 紧急备份结束 ======
-  
   renderAll();
   updateProviderTags();
   startProactiveTimer();
@@ -1212,14 +1062,11 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
-  setTimeout(() => {
-    const panel = document.getElementById(name + '-panel');
-    panel.classList.add('show');
-    if (name === 'memory') loadMemoryTab();
-    if (name === 'wallet') loadWallet();
-    if (name === 'log') renderLogs();
-    if (name === 'calendar') loadCalendar();
-  }, 0);
+  document.getElementById(name + '-panel').classList.add('show');
+  if (name === 'memory') loadMemoryTab();
+  if (name === 'wallet') loadWallet();
+  if (name === 'log') renderLogs();
+  if (name === 'calendar') loadCalendar();
 }
 function hidePanel(name) {
   document.getElementById(name + '-panel').classList.remove('show');
@@ -1493,7 +1340,7 @@ function applyTheme() {
   if (theme === 'default') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', theme);
   // 更新按钮状态
-  ['default','wx'].forEach(t => {
+  ['default','wx', 'warm', 'forest'].forEach(t => {
     const btn = document.getElementById('theme-' + t);
     if (btn) btn.classList.toggle('active', t === theme);
   });
@@ -1661,69 +1508,10 @@ function renderAll() {
     container.innerHTML = '<div style="text-align:center;color:var(--text2);margin-top:40vh;font-size:14px;">说点什么吧 ✨</div>';
     return;
   }
-  renderStart = Math.max(0, messages.length - RENDER_BATCH);
-
-  if (renderStart > 0) {
-    const loadMore = document.createElement('div');
-    loadMore.style.cssText = 'text-align:center;padding:12px;';
-    loadMore.innerHTML = '<button class="small-btn" onclick="loadEarlierMessages()">⬆ 加载更早的消息（还有' + renderStart + '条）</button>';
-    container.appendChild(loadMore);
-  }
-
-  for (let i = renderStart; i < messages.length; i++) {
-    container.appendChild(createMsgEl(messages[i], i));
-  }
+  messages.forEach((msg, i) => container.appendChild(createMsgEl(msg, i)));
   scrollToBottom();
 }
 
-function loadEarlierMessages() {
-  const container = document.getElementById('messages');
-  const prevScrollHeight = container.scrollHeight;
-  const newStart = Math.max(0, renderStart - RENDER_BATCH);
-
-  // 移除旧的加载按钮
-  const oldBtn = container.querySelector('[onclick="loadEarlierMessages()"]');
-  if (oldBtn && oldBtn.parentElement) oldBtn.parentElement.remove();
-
-  // 构建新片段
-  const fragment = document.createDocumentFragment();
-  if (newStart > 0) {
-    const loadMore = document.createElement('div');
-    loadMore.style.cssText = 'text-align:center;padding:12px;';
-    loadMore.innerHTML = '<button class="small-btn" onclick="loadEarlierMessages()">⬆ 加载更早的消息（还有' + newStart + '条）</button>';
-    fragment.appendChild(loadMore);
-  }
-  for (let i = newStart; i < renderStart; i++) {
-    fragment.appendChild(createMsgEl(messages[i], i));
-  }
-
-  container.insertBefore(fragment, container.firstChild);
-  renderStart = newStart;
-
-  // 保持滚动位置不跳
-  container.scrollTop = container.scrollHeight - prevScrollHeight;
-}
-
-function smartSplit(content) {
-  const blocks = [];
-  let current = '';
-  let inCodeBlock = false;
-  const lines = content.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trimStart().startsWith('```')) {
-      inCodeBlock = !inCodeBlock;
-    }
-    if (!inCodeBlock && lines[i].trim() === '' && current.trim()) {
-      blocks.push(current.trim());
-      current = '';
-    } else {
-      current += (current ? '\n' : '') + lines[i];
-    }
-  }
-  if (current.trim()) blocks.push(current.trim());
-  return blocks.length > 0 ? blocks : [content];
-}
-  
 function createMsgEl(msg, index) {
   const div = document.createElement('div');
   div.className = 'msg ' + (msg.role === 'user' ? 'user' : 'ai');
@@ -1733,6 +1521,7 @@ function createMsgEl(msg, index) {
   const activeV = msg.versions ? msg.versions[msg.activeVersion || 0] : msg;
   let content = activeV.content || '';
   let thinking = activeV.thinking || '';
+   // 兼容旧消息：content里残留的thinking标签提取出来
   if (!thinking && content.includes('<thinking>')) {
     const ext = extractThinking(content);
     content = ext.display;
@@ -1741,73 +1530,48 @@ function createMsgEl(msg, index) {
   const timestamp = activeV.timestamp || msg.timestamp;
   const images = activeV.images || [];
 
-  // 头像
-  const avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = msg.role === 'user' ? '星' : '月';
-  div.appendChild(avatar);
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
 
-  // 气泡容器
-  const bubblesWrap = document.createElement('div');
-  bubblesWrap.className = 'msg-bubbles';
+  let html = '';
+  if (thinking && msg.role === 'assistant') {
+    html += '<div class="thinking-block">'
+      + '<div class="thinking-toggle" onclick="toggleThinking(this)">'
+      + '<span class="thinking-arrow">▶</span> 思考过程</div>'
+      + '<div class="thinking-content">' + escapeHtml(thinking) + '</div></div>';
+  }
+  if (images.length > 0) {
+    html += images.map(img => `<img class="msg-image" src="${img.url}" onclick="window.open(this.src)">`).join('');
+  }
+  html += renderMarkdown(content);
+  bubble.innerHTML = html;
 
-  // assistant按段落拆分显示，user不拆
-//  const paragraphs = msg.role === 'assistant' ? smartSplit(content) : [content];
-  const paragraphs = [content];
-  
-  paragraphs.forEach((para, i) => {
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble' + (i > 0 ? ' grouped' : '');
-
-    let html = '';
-    if (i === 0 && thinking && msg.role === 'assistant') {
-      html += '<div class="thinking-block">'
-        + '<div class="thinking-toggle" onclick="toggleThinking(this)">'
-        + '<span class="thinking-arrow">▶</span> 思考过程</div>'
-        + '<div class="thinking-content">' + escapeHtml(thinking) + '</div></div>';
-    }
-    if (i === 0 && images.length > 0) {
-      html += images.map(img => `<img class="msg-image" src="${img.url}" onclick="window.open(this.src)">`).join('');
-    }
-    html += renderMarkdown(para);
-    bubble.innerHTML = html;
-    bubblesWrap.appendChild(bubble);
-  });
-
-  div.appendChild(bubblesWrap);
-
-  // 底部：时间戳+按钮同行
-  const meta = document.createElement('div');
-  meta.className = 'msg-meta';
-
-  const time = document.createElement('span');
+  const time = document.createElement('div');
   time.className = 'msg-time';
   time.textContent = formatTime(timestamp);
-  meta.appendChild(time);
+
+  const actions = document.createElement('div');
+  actions.className = 'msg-actions';
 
   const editBtn = document.createElement('button');
-  editBtn.className = 'meta-btn';
   editBtn.textContent = '编辑';
   editBtn.onclick = () => startEdit(index);
-  meta.appendChild(editBtn);
+  actions.appendChild(editBtn);
 
   if (msg.role === 'assistant') {
     const retryBtn = document.createElement('button');
-    retryBtn.className = 'meta-btn';
     retryBtn.textContent = '重试';
     retryBtn.onclick = () => retryMessage(index);
-    meta.appendChild(retryBtn);
+    actions.appendChild(retryBtn);
   }
 
   if (msg.versions && msg.versions.length > 1) {
     const nav = document.createElement('span');
     nav.className = 'version-nav';
     const prevBtn = document.createElement('button');
-    prevBtn.className = 'meta-btn';
     prevBtn.textContent = '◀';
     prevBtn.onclick = () => switchVersion(index, -1);
     const nextBtn = document.createElement('button');
-    nextBtn.className = 'meta-btn';
     nextBtn.textContent = '▶';
     nextBtn.onclick = () => switchVersion(index, 1);
     const label = document.createElement('span');
@@ -1816,10 +1580,12 @@ function createMsgEl(msg, index) {
     nav.appendChild(prevBtn);
     nav.appendChild(label);
     nav.appendChild(nextBtn);
-    meta.appendChild(nav);
+    actions.appendChild(nav);
   }
 
-  div.appendChild(meta);
+  div.appendChild(bubble);
+  div.appendChild(time);
+  div.appendChild(actions);
   return div;
 }
 
@@ -1840,21 +1606,17 @@ function switchVersion(index, dir) {
 // ====== 编辑 ======
 function startEdit(index) {
   const msgEl = document.querySelector('.msg[data-index="' + index + '"]');
-  const bubblesWrap = msgEl.querySelector('.msg-bubbles');
-  const meta = msgEl.querySelector('.msg-meta');
+  const bubble = msgEl.querySelector('.msg-bubble');
+  const actions = msgEl.querySelector('.msg-actions');
 
   const activeV = messages[index].versions
     ? messages[index].versions[messages[index].activeVersion || 0]
     : messages[index];
 
-  bubblesWrap.innerHTML = '';
-  const editArea = document.createElement('textarea');
-  editArea.className = 'edit-textarea';
-  editArea.value = activeV.content;
-  bubblesWrap.appendChild(editArea);
-  editArea.focus();
-
-  if (meta) meta.style.display = 'none';
+  bubble.textContent = activeV.content;
+  bubble.contentEditable = true;
+  bubble.focus();
+  actions.style.display = 'none';
 
   const editActs = document.createElement('div');
   editActs.className = 'edit-actions';
@@ -1863,7 +1625,7 @@ function startEdit(index) {
   saveBtn.className = 'edit-save';
   saveBtn.textContent = '保存';
   saveBtn.onclick = () => {
-    const newText = editArea.value;
+    const newText = bubble.textContent;
     if (messages[index].versions) {
       messages[index].versions[messages[index].activeVersion].content = newText;
     } else {
@@ -3702,12 +3464,9 @@ async function subscribePush() {
 
   
 // ====== PWA ======
-    // debug模块
-// 暂时禁用，防止继续缓存
-// if ('serviceWorker' in navigator) {
-//   navigator.serviceWorker.register('sw.js').catch(() => {});
-// }
-    // debug模块
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
