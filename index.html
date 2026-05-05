@@ -1068,6 +1068,24 @@ window.onerror = function(msg, url, line) {
   d.textContent = 'JS错误: ' + msg + ' (行' + line + ')';
   document.body.appendChild(d);
 };
+
+// ====== 捕获Promise异步错误 ======
+window.addEventListener('unhandledrejection', function(e) {
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;bottom:40px;left:0;right:0;background:orange;color:black;padding:10px;z-index:99999;font-size:12px;max-height:20vh;overflow:auto;';
+  d.textContent = 'Promise错误: ' + e.reason;
+  document.body.appendChild(d);
+});
+
+// ====== 点击透视镜：看你到底点到了谁 ======
+document.addEventListener('click', function(e) {
+  var el = e.target;
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:50px;left:0;right:0;background:blue;color:white;padding:8px;z-index:99999;font-size:11px;word-break:break-all;';
+  d.textContent = '点击到: <' + el.tagName + '> class="' + el.className.substring(0,60) + '" id="' + el.id + '"';
+  document.body.appendChild(d);
+  setTimeout(function(){ d.remove(); }, 4000);
+}, true);  
   //  debug模块
 // ====== 全局状态 ======
 let messages = [];
