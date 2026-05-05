@@ -1089,6 +1089,8 @@ document.addEventListener('click', function(e) {
   //  debug模块
 // ====== 全局状态 ======
 let messages = [];
+let renderStart = 0;
+const RENDER_BATCH = 50;
 let activityLogs = [];
 let isGenerating = false;
 let pendingImage = null; // {url: base64, placeholder: string}
@@ -1190,7 +1192,6 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
-  alert('showPanel! name=' + name);         // debug调试
   document.getElementById(name + '-panel').classList.add('show');
   if (name === 'memory') loadMemoryTab();
   if (name === 'wallet') loadWallet();
@@ -1637,8 +1638,47 @@ function renderAll() {
     container.innerHTML = '<div style="text-align:center;color:var(--text2);margin-top:40vh;font-size:14px;">说点什么吧 ✨</div>';
     return;
   }
-  messages.forEach((msg, i) => container.appendChild(createMsgEl(msg, i)));
+  renderStart = Math.max(0, messages.length - RENDER_BATCH);
+
+  if (renderStart > 0) {
+    const loadMore = document.createElement('div');
+    loadMore.style.cssText = 'text-align:center;padding:12px;';
+    loadMore.innerHTML = '<button class="small-btn" onclick="loadEarlierMessages()">⬆ 加载更早的消息（还有' + renderStart + '条）</button>';
+    container.appendChild(loadMore);
+  }
+
+  for (let i = renderStart; i < messages.length; i++) {
+    container.appendChild(createMsgEl(messages[i], i));
+  }
   scrollToBottom();
+}
+
+function loadEarlierMessages() {
+  const container = document.getElementById('messages');
+  const prevScrollHeight = container.scrollHeight;
+  const newStart = Math.max(0, renderStart - RENDER_BATCH);
+
+  // 移除旧的加载按钮
+  const oldBtn = container.querySelector('[onclick="loadEarlierMessages()"]');
+  if (oldBtn && oldBtn.parentElement) oldBtn.parentElement.remove();
+
+  // 构建新片段
+  const fragment = document.createDocumentFragment();
+  if (newStart > 0) {
+    const loadMore = document.createElement('div');
+    loadMore.style.cssText = 'text-align:center;padding:12px;';
+    loadMore.innerHTML = '<button class="small-btn" onclick="loadEarlierMessages()">⬆ 加载更早的消息（还有' + newStart + '条）</button>';
+    fragment.appendChild(loadMore);
+  }
+  for (let i = newStart; i < renderStart; i++) {
+    fragment.appendChild(createMsgEl(messages[i], i));
+  }
+
+  container.insertBefore(fragment, container.firstChild);
+  renderStart = newStart;
+
+  // 保持滚动位置不跳
+  container.scrollTop = container.scrollHeight - prevScrollHeight;
 }
 
 function smartSplit(content) {
@@ -1959,7 +1999,6 @@ function buildApiMessages() {
 
 // ====== 发送消息 ======
 async function sendMessage() {
-  alert('sendMessage! isGen=' + isGenerating);             // debug调试
   const input = document.getElementById('input');
   const text = input.value.trim();
   if ((!text && !pendingImage) || isGenerating) return;
