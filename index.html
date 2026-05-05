@@ -1192,7 +1192,6 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
-  alert('showPanel! name=' + name);
   document.getElementById(name + '-panel').classList.add('show');
   if (name === 'memory') loadMemoryTab();
   if (name === 'wallet') loadWallet();
@@ -1730,8 +1729,9 @@ function createMsgEl(msg, index) {
   bubblesWrap.className = 'msg-bubbles';
 
   // assistant按段落拆分显示，user不拆
-  const paragraphs = msg.role === 'assistant' ? smartSplit(content) : [content];
-
+//  const paragraphs = msg.role === 'assistant' ? smartSplit(content) : [content];
+  const paragraphs = [content];
+  
   paragraphs.forEach((para, i) => {
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble' + (i > 0 ? ' grouped' : '');
