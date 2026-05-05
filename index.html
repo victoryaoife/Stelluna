@@ -23,14 +23,6 @@
   --ai-bg: rgba(247, 252, 255, 0.65);
   --danger: #ED7E7E;
   --success: #76E3D2;
-  --header-bg: rgba(255, 255, 255, 0.55);
-  --header-border: rgba(255, 255, 255, 0.3);
-  --header-text: #436999;
-  --user-text: #1556A1;
-  --ai-text: #3C77B0;
-  --input-text: #023761;
-  --input-area-bg: rgba(255, 255, 255, 0.55);
-  --input-area-border: rgba(255, 255, 255, 0.3);
   --radius: 15px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -45,18 +37,30 @@
   --accent2: #06AD56;
   --user-bg: #95EC69;
   --ai-bg: #FFFFFF;
-  --header-bg: #EDEDED;
-  --header-border: #D9D9D9;
-  --header-text: #111111;
-  --user-text: #111111;
-  --ai-text: #111111;
-  --input-text: #111111;
-  --input-area-bg: #F7F7F7;
-  --input-area-border: #D9D9D9;
 }
-[data-theme="wx"] body {
-  background-image: none;
-  background-color: #EDEDED;
+[data-theme="warm"] {
+  --bg: #1a1410;
+  --surface: #2e2620;
+  --surface2: #3d3328;
+  --border: #4a3f32;
+  --text: #f0e8e0;
+  --text2: #b0a898;
+  --accent: #ca9a6c;
+  --accent2: #d8b48a;
+  --user-bg: #f0e8e0;
+  --ai-bg: #FFF7F0;
+}
+[data-theme="forest"] {
+  --bg: #0f1a14;
+  --surface: #1a2e22;
+  --surface2: #234032;
+  --border: #2a4a3a;
+  --text: #e0f0e8;
+  --text2: #98b0a0;
+  --accent: #6cca8d;
+  --accent2: #8ad8a7;
+  --user-bg: #e0f0e8;
+  --ai-bg: #F0FFF7;
 }
 html, body {
   height:100%; 
@@ -105,10 +109,10 @@ html, body {
 #header {
   display:flex; align-items:center; justify-content:space-between;
   padding:12px 16px; 
-  background: var(--header-bg);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--header-border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
   padding-top: max(12px, env(safe-area-inset-top));
   position: relative;
 }
@@ -117,7 +121,6 @@ html, body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  color: var(--header-text);
 }
 .header-left, .header-right { display:flex; gap:4px; }
 #header button {
@@ -160,11 +163,11 @@ html, body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 .msg.user .msg-bubble {
-  color: var(--user-text); background:var(--user-bg);
+  color: #1556A1; background:var(--user-bg);
   border-bottom-right-radius:6px;
 }
 .msg.ai .msg-bubble {
-  color: var(--ai-text); background:var(--ai-bg);
+  color: #3C77B0; background:var(--ai-bg);
   border-bottom-left-radius:6px;
 }
 .msg-time { font-size:13px; color:var(--text2); margin-top:3px; padding:0 4px; }
@@ -290,17 +293,17 @@ html, body {
   display:flex; align-items:flex-end; gap:8px;
   padding:10px 12px;
   padding-bottom: max(10px, var(--safe-bottom));
-  background: var(--input-area-bg);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--input-area-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
   padding-bottom: max(10px, var(--safe-bottom));
 }
 #input {
   flex:1; background:var(--surface2); border:1px solid var(--border);
-  color: var(--input-text); border-radius:20px; padding:10px 16px;
-  font-size:16px; line-height:1.2; resize:none; font-weight: 500;
-  max-height:800px; outline:none; font-family:inherit;
+  color: #023761; border-radius:20px; padding:10px 16px;
+  font-size:20px; line-height:1.4; resize:none; font-weight: 500;
+  max-height:120px; outline:none; font-family:inherit;
 }
 #input:focus { border-color:var(--accent); }
 #input::placeholder { color:var(--text2); }
@@ -669,8 +672,8 @@ html, body {
   <div id="providers-list"></div>
   <div class="setting-row" style="margin-top:8px;">
     <input id="new-provider-name" placeholder="名称（如：主力站）" style="flex:0.5;">
-    <input id="new-provider-url" placeholder="API 地址（到 /v1）" style="flex:0.5;">
-    <input id="new-provider-key" placeholder="API Key" style="flex:0.5;">
+    <input id="new-provider-url" placeholder="API 地址（到 /v1）" style="flex:1;">
+    <input id="new-provider-key" type="password" placeholder="API Key" style="flex:1;">
     <button class="small-btn" onclick="addProvider()">添加</button>
   </div>
   <div class="setting-group" style="margin-top:12px;">
@@ -720,7 +723,7 @@ html, body {
     <label>小模型 (VICE)</label>
     <div class="setting-row">
       <input id="s-vice-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-vice-key" placeholder="Key" style="flex:1;">
+      <input id="s-vice-key" type="password" placeholder="Key" style="flex:1;">
       <input id="s-vice-model" placeholder="模型名" style="flex:0.6;">
     </div>
   </div>
@@ -728,7 +731,7 @@ html, body {
     <label>Embedding</label>
     <div class="setting-row">
       <input id="s-embed-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-embed-key" placeholder="Key" style="flex:1;">
+      <input id="s-embed-key" type="password" placeholder="Key" style="flex:1;">
       <input id="s-embed-model" placeholder="模型名" style="flex:0.6;">
     </div>
   </div>
@@ -736,7 +739,7 @@ html, body {
     <label>视觉模型</label>
     <div class="setting-row">
       <input id="s-vision-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-vision-key" placeholder="Key" style="flex:1;">
+      <input id="s-vision-key" type="password" placeholder="Key" style="flex:1;">
       <input id="s-vision-model" placeholder="模型名" style="flex:0.6;">
     </div>
   </div>
@@ -825,6 +828,8 @@ html, body {
     <div class="setting-row">
       <button class="small-btn" onclick="setTheme('default')" id="theme-default">🌙 深蓝夜空</button>
       <button class="small-btn" onclick="setTheme('wx')" id="theme-wx">🎭 伪装模式</button>
+      <button class="small-btn" onclick="setTheme('warm')" id="theme-warm">🕯 暖灯壁炉</button>
+      <button class="small-btn" onclick="setTheme('forest')" id="theme-forest">🌿 森林苔藓</button>
     </div>
   </div>
 
@@ -1335,7 +1340,7 @@ function applyTheme() {
   if (theme === 'default') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', theme);
   // 更新按钮状态
-  ['default','wx'].forEach(t => {
+  ['default','wx', 'warm', 'forest'].forEach(t => {
     const btn = document.getElementById('theme-' + t);
     if (btn) btn.classList.toggle('active', t === theme);
   });
@@ -1507,26 +1512,6 @@ function renderAll() {
   scrollToBottom();
 }
 
-function smartSplit(content) {
-  const blocks = [];
-  let current = '';
-  let inCodeBlock = false;
-  const lines = content.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trimStart().startsWith('```')) {
-      inCodeBlock = !inCodeBlock;
-    }
-    if (!inCodeBlock && lines[i].trim() === '' && current.trim()) {
-      blocks.push(current.trim());
-      current = '';
-    } else {
-      current += (current ? '\n' : '') + lines[i];
-    }
-  }
-  if (current.trim()) blocks.push(current.trim());
-  return blocks.length > 0 ? blocks : [content];
-}
-  
 function createMsgEl(msg, index) {
   const div = document.createElement('div');
   div.className = 'msg ' + (msg.role === 'user' ? 'user' : 'ai');
@@ -1536,6 +1521,7 @@ function createMsgEl(msg, index) {
   const activeV = msg.versions ? msg.versions[msg.activeVersion || 0] : msg;
   let content = activeV.content || '';
   let thinking = activeV.thinking || '';
+   // 兼容旧消息：content里残留的thinking标签提取出来
   if (!thinking && content.includes('<thinking>')) {
     const ext = extractThinking(content);
     content = ext.display;
@@ -1544,72 +1530,48 @@ function createMsgEl(msg, index) {
   const timestamp = activeV.timestamp || msg.timestamp;
   const images = activeV.images || [];
 
-  // 头像
-  const avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = msg.role === 'user' ? '星' : '月';
-  div.appendChild(avatar);
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
 
-  // 气泡容器
-  const bubblesWrap = document.createElement('div');
-  bubblesWrap.className = 'msg-bubbles';
+  let html = '';
+  if (thinking && msg.role === 'assistant') {
+    html += '<div class="thinking-block">'
+      + '<div class="thinking-toggle" onclick="toggleThinking(this)">'
+      + '<span class="thinking-arrow">▶</span> 思考过程</div>'
+      + '<div class="thinking-content">' + escapeHtml(thinking) + '</div></div>';
+  }
+  if (images.length > 0) {
+    html += images.map(img => `<img class="msg-image" src="${img.url}" onclick="window.open(this.src)">`).join('');
+  }
+  html += renderMarkdown(content);
+  bubble.innerHTML = html;
 
-  // assistant按段落拆分显示，user不拆
-  const paragraphs = msg.role === 'assistant' ? smartSplit(content) : [content];
-
-  paragraphs.forEach((para, i) => {
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble' + (i > 0 ? ' grouped' : '');
-
-    let html = '';
-    if (i === 0 && thinking && msg.role === 'assistant') {
-      html += '<div class="thinking-block">'
-        + '<div class="thinking-toggle" onclick="toggleThinking(this)">'
-        + '<span class="thinking-arrow">▶</span> 思考过程</div>'
-        + '<div class="thinking-content">' + escapeHtml(thinking) + '</div></div>';
-    }
-    if (i === 0 && images.length > 0) {
-      html += images.map(img => `<img class="msg-image" src="${img.url}" onclick="window.open(this.src)">`).join('');
-    }
-    html += renderMarkdown(para);
-    bubble.innerHTML = html;
-    bubblesWrap.appendChild(bubble);
-  });
-
-  div.appendChild(bubblesWrap);
-
-  // 底部：时间戳+按钮同行
-  const meta = document.createElement('div');
-  meta.className = 'msg-meta';
-
-  const time = document.createElement('span');
+  const time = document.createElement('div');
   time.className = 'msg-time';
   time.textContent = formatTime(timestamp);
-  meta.appendChild(time);
+
+  const actions = document.createElement('div');
+  actions.className = 'msg-actions';
 
   const editBtn = document.createElement('button');
-  editBtn.className = 'meta-btn';
   editBtn.textContent = '编辑';
   editBtn.onclick = () => startEdit(index);
-  meta.appendChild(editBtn);
+  actions.appendChild(editBtn);
 
   if (msg.role === 'assistant') {
     const retryBtn = document.createElement('button');
-    retryBtn.className = 'meta-btn';
     retryBtn.textContent = '重试';
     retryBtn.onclick = () => retryMessage(index);
-    meta.appendChild(retryBtn);
+    actions.appendChild(retryBtn);
   }
 
   if (msg.versions && msg.versions.length > 1) {
     const nav = document.createElement('span');
     nav.className = 'version-nav';
     const prevBtn = document.createElement('button');
-    prevBtn.className = 'meta-btn';
     prevBtn.textContent = '◀';
     prevBtn.onclick = () => switchVersion(index, -1);
     const nextBtn = document.createElement('button');
-    nextBtn.className = 'meta-btn';
     nextBtn.textContent = '▶';
     nextBtn.onclick = () => switchVersion(index, 1);
     const label = document.createElement('span');
@@ -1618,10 +1580,12 @@ function createMsgEl(msg, index) {
     nav.appendChild(prevBtn);
     nav.appendChild(label);
     nav.appendChild(nextBtn);
-    meta.appendChild(nav);
+    actions.appendChild(nav);
   }
 
-  div.appendChild(meta);
+  div.appendChild(bubble);
+  div.appendChild(time);
+  div.appendChild(actions);
   return div;
 }
 
