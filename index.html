@@ -1192,6 +1192,7 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
+  alert('showPanel! name=' + name);
   document.getElementById(name + '-panel').classList.add('show');
   if (name === 'memory') loadMemoryTab();
   if (name === 'wallet') loadWallet();
