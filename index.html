@@ -605,7 +605,7 @@ html, body {
   <h2 id="lock-title">设置密码</h2>
   <div class="lock-subtitle" id="lock-subtitle">为星月栖设置一个专属密码</div>
   <input id="lock-input" type="tel" maxlength="6" placeholder="······" onkeydown="if(event.key==='Enter')lockAction()">
-  <input id="lock-confirm" type="tel" maxlength="6" placeholder="再输入一次" style="display:none;" onkeydown="if(event.key==='Enter')lockAction()">
+  <input id="lock-confirm" type="tel" maxlength="6" placeholder="再输入一次" onkeydown="if(event.key==='Enter')lockAction()">
   <button class="lock-btn" onclick="lockAction()">确认</button>
   <div class="lock-error" id="lock-error"></div>
   <div class="lock-reset" id="lock-reset" style="display:none;" onclick="resetPassword()">忘记密码？重置所有数据</div>
