@@ -1413,6 +1413,11 @@ function escapeHtml(text) {
 function renderMarkdown(text) {
   if (!text) return '';
   try {
+    // 防止消息中的 HTML 源码被渲染为真实 DOM
+    const _h = [];
+    text = text.replace(/```[\s\S]*?```|`[^`\n]+`/g, m => { _h.push(m); return '%%CH' + (_h.length-1) + '%%'; });
+    text = text.replace(/</g, '&lt;');
+    _h.forEach((h, i) => { text = text.replace('%%CH' + i + '%%', h); });
     let html = marked.parse(text, { breaks: true });
     // 后处理：给代码块加复制按钮和折叠
     html = html.replace(/<pre><code(?: class="language-(\w+)")?>([\s\S]*?)<\/code><\/pre>/g,
