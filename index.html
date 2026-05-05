@@ -1190,6 +1190,7 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
+  alert('showPanel! name=' + name);         // debug调试
   document.getElementById(name + '-panel').classList.add('show');
   if (name === 'memory') loadMemoryTab();
   if (name === 'wallet') loadWallet();
@@ -1958,6 +1959,7 @@ function buildApiMessages() {
 
 // ====== 发送消息 ======
 async function sendMessage() {
+  alert('sendMessage! isGen=' + isGenerating);             // debug调试
   const input = document.getElementById('input');
   const text = input.value.trim();
   if ((!text && !pendingImage) || isGenerating) return;
