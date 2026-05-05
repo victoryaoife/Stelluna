@@ -1200,13 +1200,14 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
-  const panel = document.getElementById(name + '-panel');
-  panel.classList.add('show');
-  void panel.offsetHeight;
-  if (name === 'memory') loadMemoryTab();
-  if (name === 'wallet') loadWallet();
-  if (name === 'log') renderLogs();
-  if (name === 'calendar') loadCalendar();
+  setTimeout(() => {
+    const panel = document.getElementById(name + '-panel');
+    panel.classList.add('show');
+    if (name === 'memory') loadMemoryTab();
+    if (name === 'wallet') loadWallet();
+    if (name === 'log') renderLogs();
+    if (name === 'calendar') loadCalendar();
+  }, 0);
 }
 function hidePanel(name) {
   document.getElementById(name + '-panel').classList.remove('show');
