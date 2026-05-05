@@ -1171,15 +1171,6 @@ function unlock() {
     initKeyboard();
   }
   subscribePush();
-  // ====== 临时恢复代码 - 恢复成功后删掉 ======
-  const archiveKeys = Object.keys(localStorage).filter(k => k.startsWith('chat_archive_'));
-  if (archiveKeys.length > 0 && messages.length === 1) {
-    const latest = archiveKeys.sort().pop();
-    messages = JSON.parse(localStorage.getItem(latest));
-    saveMessages();
-    renderAll();
-    showStatus('已恢复 ' + archiveKeys.length + ' 条归档，最新一条已加载 ✓');
-  }
 }
 
 function resetPassword() {
