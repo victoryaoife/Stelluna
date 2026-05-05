@@ -23,6 +23,14 @@
   --ai-bg: rgba(247, 252, 255, 0.65);
   --danger: #ED7E7E;
   --success: #76E3D2;
+  --header-bg: rgba(255, 255, 255, 0.55);
+  --header-border: rgba(255, 255, 255, 0.3);
+  --header-text: #436999;
+  --user-text: #1556A1;
+  --ai-text: #3C77B0;
+  --input-text: #023761;
+  --input-area-bg: rgba(255, 255, 255, 0.55);
+  --input-area-border: rgba(255, 255, 255, 0.3);
   --radius: 15px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -37,30 +45,18 @@
   --accent2: #06AD56;
   --user-bg: #95EC69;
   --ai-bg: #FFFFFF;
+  --header-bg: #EDEDED;
+  --header-border: #D9D9D9;
+  --header-text: #111111;
+  --user-text: #111111;
+  --ai-text: #111111;
+  --input-text: #111111;
+  --input-area-bg: #F7F7F7;
+  --input-area-border: #D9D9D9;
 }
-[data-theme="warm"] {
-  --bg: #1a1410;
-  --surface: #2e2620;
-  --surface2: #3d3328;
-  --border: #4a3f32;
-  --text: #f0e8e0;
-  --text2: #b0a898;
-  --accent: #ca9a6c;
-  --accent2: #d8b48a;
-  --user-bg: #f0e8e0;
-  --ai-bg: #FFF7F0;
-}
-[data-theme="forest"] {
-  --bg: #0f1a14;
-  --surface: #1a2e22;
-  --surface2: #234032;
-  --border: #2a4a3a;
-  --text: #e0f0e8;
-  --text2: #98b0a0;
-  --accent: #6cca8d;
-  --accent2: #8ad8a7;
-  --user-bg: #e0f0e8;
-  --ai-bg: #F0FFF7;
+[data-theme="wx"] body {
+  background-image: none;
+  background-color: #EDEDED;
 }
 html, body {
   height:100%; 
@@ -109,10 +105,10 @@ html, body {
 #header {
   display:flex; align-items:center; justify-content:space-between;
   padding:12px 16px; 
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--header-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 1px solid var(--header-border);
   padding-top: max(12px, env(safe-area-inset-top));
   position: relative;
 }
@@ -121,6 +117,7 @@ html, body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  color: var(--header-text);
 }
 .header-left, .header-right { display:flex; gap:4px; }
 #header button {
@@ -163,11 +160,11 @@ html, body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 .msg.user .msg-bubble {
-  color: #1556A1; background:var(--user-bg);
+  color: var(--user-text); background:var(--user-bg);
   border-bottom-right-radius:6px;
 }
 .msg.ai .msg-bubble {
-  color: #3C77B0; background:var(--ai-bg);
+  color: var(--ai-text); background:var(--ai-bg);
   border-bottom-left-radius:6px;
 }
 .msg-time { font-size:13px; color:var(--text2); margin-top:3px; padding:0 4px; }
@@ -293,17 +290,17 @@ html, body {
   display:flex; align-items:flex-end; gap:8px;
   padding:10px 12px;
   padding-bottom: max(10px, var(--safe-bottom));
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--input-area-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  border-top: 1px solid var(--input-area-border);
   padding-bottom: max(10px, var(--safe-bottom));
 }
 #input {
   flex:1; background:var(--surface2); border:1px solid var(--border);
-  color: #023761; border-radius:20px; padding:10px 16px;
-  font-size:20px; line-height:1.4; resize:none; font-weight: 500;
-  max-height:120px; outline:none; font-family:inherit;
+  color: var(--input-text); border-radius:20px; padding:10px 16px;
+  font-size:16px; line-height:1.4; resize:none; font-weight: 500;
+  max-height:800px; outline:none; font-family:inherit;
 }
 #input:focus { border-color:var(--accent); }
 #input::placeholder { color:var(--text2); }
@@ -828,8 +825,6 @@ html, body {
     <div class="setting-row">
       <button class="small-btn" onclick="setTheme('default')" id="theme-default">🌙 深蓝夜空</button>
       <button class="small-btn" onclick="setTheme('wx')" id="theme-wx">🎭 伪装模式</button>
-      <button class="small-btn" onclick="setTheme('warm')" id="theme-warm">🕯 暖灯壁炉</button>
-      <button class="small-btn" onclick="setTheme('forest')" id="theme-forest">🌿 森林苔藓</button>
     </div>
   </div>
 
@@ -1340,7 +1335,7 @@ function applyTheme() {
   if (theme === 'default') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', theme);
   // 更新按钮状态
-  ['default','wx', 'warm', 'forest'].forEach(t => {
+  ['default','wx'].forEach(t => {
     const btn = document.getElementById('theme-' + t);
     if (btn) btn.classList.toggle('active', t === theme);
   });
