@@ -689,8 +689,10 @@ html, body {
 </style>
 <script src="capacitor.js"></script>  
 </head>
-<body>
-
+    //debug模块
+// <body>
+<body style="border-top: 5px solid red !important;">
+    //debug模块
 <!-- ====== Lock Screen ====== -->
 <div id="lock-screen">
   <div class="lock-emoji">🌙</div>
@@ -1049,6 +1051,27 @@ html, body {
 
 html <script src="marked.min.js"></script>
 <script>
+    //debug模块
+// ====== 强制清除Service Worker缓存 ======
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    regs.forEach(function(r) { r.unregister(); });
+  });
+  if (window.caches) {
+    caches.keys().then(function(keys) {
+      keys.forEach(function(k) { caches.delete(k); });
+    });
+  }
+}
+
+// ====== 全局错误捕获（浮层显示） ======
+window.onerror = function(msg, url, line) {
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:red;color:white;padding:10px;z-index:9999;font-size:13px;max-height:30vh;overflow:auto;';
+  d.textContent = 'JS错误: ' + msg + ' (行' + line + ')';
+  document.body.appendChild(d);
+};
+  //debug模块
 // ====== 全局状态 ======
 let messages = [];
 let activityLogs = [];
@@ -3599,9 +3622,12 @@ async function subscribePush() {
 
   
 // ====== PWA ======
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
+    //debug模块
+// 暂时禁用，防止继续缓存
+// if ('serviceWorker' in navigator) {
+//   navigator.serviceWorker.register('sw.js').catch(() => {});
+// }
+    //debug模块
 </script>
 </body>
 </html>
