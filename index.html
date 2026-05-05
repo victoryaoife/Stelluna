@@ -137,15 +137,12 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 .msg {
-  display:grid; margin-bottom:12px;
+  display:flex; flex-direction:column; margin-bottom:12px;
   max-width:100%; animation: fadeIn 0.2s ease;
-  grid-template-columns: 36px 1fr;
-  gap: 0 8px;
-  padding: 0 4px;
-  align-items: start;
 }
 @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
-.msg.user { grid-template-columns: 1fr 36px; }
+.msg.user { align-self:flex-end; align-items:flex-end; }
+.msg.ai { align-self:flex-start; align-items:flex-start; }
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   display: inline-block;
@@ -170,7 +167,7 @@ html, body {
   color: var(--ai-text); background:var(--ai-bg);
   border-bottom-left-radius:6px;
 }
-.msg-time { font-size:11px; color:var(--text2); padding:0; }
+.msg-time { font-size:13px; color:var(--text2); margin-top:3px; padding:0 4px; }
 .msg-bubble p { margin:0.4em 0; }
 .msg-bubble p:first-child { margin-top:0; }
 .msg-bubble p:last-child { margin-bottom:0; }
@@ -225,108 +222,17 @@ html, body {
   list-style-position: inside;
   padding-left: 4px;
 }
-
-/* ====== 头像 ====== */
-.msg-avatar {
-  grid-row: 1;
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.msg.ai .msg-avatar {
-  grid-column: 1;
-  background: var(--ai-bg);
-  color: var(--ai-text);
-}
-.msg.user .msg-avatar {
-  grid-column: 2;
-  background: var(--user-bg);
-  color: var(--user-text);
-}
-
-/* ====== 气泡容器 ====== */
-.msg-bubbles {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  grid-row: 1;
-  min-width: 0;
-}
-.msg.ai .msg-bubbles {
-  grid-column: 2;
-  align-items: flex-start;
-}
-.msg.user .msg-bubbles {
-  grid-column: 1;
-  align-items: flex-end;
-}
-
-/* ====== 分段气泡 ====== */
-.msg.ai .msg-bubble.grouped {
-  border-top-left-radius: 6px;
-  border-bottom-left-radius: 6px;
-}
-.msg.user .msg-bubble.grouped {
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-
-/* ====== 底部元数据行 ====== */
-.msg-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-  grid-row: 2;
-}
-.msg.ai .msg-meta {
-  grid-column: 2;
-  padding-left: 4px;
-}
-.msg.user .msg-meta {
-  grid-column: 1;
-  justify-content: flex-end;
-  padding-right: 4px;
-}
-
-/* ====== 元数据按钮 ====== */
-.meta-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text2);
-  font-size: 12px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.msg:hover .meta-btn, .msg:active .meta-btn {
-  opacity: 1;
-}
-
-/* ====== 编辑textarea ====== */
-.edit-textarea {
-  width: 100%;
-  min-height: 120px;
-  background: var(--surface2);
-  border: 1px solid var(--accent);
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  resize: vertical;
-  outline: none;
-  font-family: inherit;
-}
   
+.msg-actions {
+  display:flex; gap:6px; margin-top:3px; align-items:center;
+  opacity:0; transition:opacity 0.2s;
+}
+.msg:hover .msg-actions, .msg:active .msg-actions { opacity:1; }
+.msg-actions button {
+  background:var(--surface2); border:1px solid var(--border);
+  color:var(--text2); font-size:15px; padding:2px 8px;
+  border-radius:6px; cursor:pointer;
+}
 .version-nav { font-size:13px; color:var(--text2); }
 .edit-actions { display:flex; gap:6px; margin-top:4px; }
 .edit-actions button {
@@ -341,8 +247,7 @@ html, body {
 }
 .stop-btn {
   display: inline-block;
-  margin: 4px 0 4px 0;
-  grid-column: 2;
+  margin: 4px 0 4px 48px;
   padding: 4px 12px;
   background: var(--danger, #e74c3c);
   color: white;
@@ -1737,21 +1642,17 @@ function switchVersion(index, dir) {
 // ====== 编辑 ======
 function startEdit(index) {
   const msgEl = document.querySelector('.msg[data-index="' + index + '"]');
-  const bubblesWrap = msgEl.querySelector('.msg-bubbles');
-  const meta = msgEl.querySelector('.msg-meta');
+  const bubble = msgEl.querySelector('.msg-bubble');
+  const actions = msgEl.querySelector('.msg-actions');
 
   const activeV = messages[index].versions
     ? messages[index].versions[messages[index].activeVersion || 0]
     : messages[index];
 
-  bubblesWrap.innerHTML = '';
-  const editArea = document.createElement('textarea');
-  editArea.className = 'edit-textarea';
-  editArea.value = activeV.content;
-  bubblesWrap.appendChild(editArea);
-  editArea.focus();
-
-  if (meta) meta.style.display = 'none';
+  bubble.textContent = activeV.content;
+  bubble.contentEditable = true;
+  bubble.focus();
+  actions.style.display = 'none';
 
   const editActs = document.createElement('div');
   editActs.className = 'edit-actions';
@@ -1760,7 +1661,7 @@ function startEdit(index) {
   saveBtn.className = 'edit-save';
   saveBtn.textContent = '保存';
   saveBtn.onclick = () => {
-    const newText = editArea.value;
+    const newText = bubble.textContent;
     if (messages[index].versions) {
       messages[index].versions[messages[index].activeVersion].content = newText;
     } else {
