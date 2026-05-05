@@ -1192,7 +1192,9 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
-  document.getElementById(name + '-panel').classList.add('show');
+  const panel = document.getElementById(name + '-panel');
+  panel.classList.add('show');
+  void panel.offsetHeight;
   if (name === 'memory') loadMemoryTab();
   if (name === 'wallet') loadWallet();
   if (name === 'log') renderLogs();
