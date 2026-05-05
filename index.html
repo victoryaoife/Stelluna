@@ -26,6 +26,18 @@
   --radius: 15px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
+[data-theme="wx"] {
+  --bg: #EDEDED;
+  --surface: #EDEDED;
+  --surface2: #F7F7F7;
+  --border: #E0E0E0;
+  --text: #111111;
+  --text2: #888888;
+  --accent: #07C160;
+  --accent2: #06AD56;
+  --user-bg: #95EC69;
+  --ai-bg: #FFFFFF;
+}
 [data-theme="warm"] {
   --bg: #1a1410;
   --surface: #2e2620;
@@ -815,6 +827,7 @@ html, body {
   <div class="setting-group">
     <div class="setting-row">
       <button class="small-btn" onclick="setTheme('default')" id="theme-default">🌙 深蓝夜空</button>
+      <button class="small-btn" onclick="setTheme('wx')" id="theme-wx">🎭 伪装模式</button>
       <button class="small-btn" onclick="setTheme('warm')" id="theme-warm">🕯 暖灯壁炉</button>
       <button class="small-btn" onclick="setTheme('forest')" id="theme-forest">🌿 森林苔藓</button>
     </div>
@@ -1327,7 +1340,7 @@ function applyTheme() {
   if (theme === 'default') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', theme);
   // 更新按钮状态
-  ['default', 'warm', 'forest'].forEach(t => {
+  ['default','wx', 'warm', 'forest'].forEach(t => {
     const btn = document.getElementById('theme-' + t);
     if (btn) btn.classList.toggle('active', t === theme);
   });
