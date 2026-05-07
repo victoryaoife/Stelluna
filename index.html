@@ -212,6 +212,14 @@ html, body {
   outline:1px solid var(--accent);
   border-radius:var(--radius);
 }
+.msg.pending .msg-bubble {
+  opacity:0.65;
+  border:1px dashed var(--accent);
+  background: rgba(200,217,239,0.2);
+}
+.msg.pending .msg-actions {
+  opacity:1;
+}
 .msg-bubble ol {
   list-style-position: inside;
   padding-left: 4px;
@@ -1056,6 +1064,7 @@ let messages = [];
 let activityLogs = [];
 let isGenerating = false;
 let pendingImage = null; // {url: base64, placeholder: string}
+let pendingMessages = [];
 let currentAbortController = null;
 let providers = []; // [{name, url, key}]
 let activeProvider = 0;
@@ -1093,8 +1102,10 @@ function openSearch() {
       lastMatch = el;
     }
   });
-  if (lastMatch) {
-    lastMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (lastMatch) {
+    setTimeout(() => {
+      lastMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
     setTimeout(() => {
       msgEls.forEach(el => el.style.outline = '');
     }, 4000);
@@ -1833,10 +1844,56 @@ function autoResize(el) {
 }
 
 function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 768) {
+  if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    sendMessage();
+    addPendingBubble();
   }
+}
+
+function addPendingBubble() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+  pendingMessages.push(text);
+  input.value = '';
+  autoResize(input);
+  renderPendingBubbles();
+}
+
+function renderPendingBubbles() {
+  document.querySelectorAll('.msg.pending').forEach(el => el.remove());
+  const container = document.getElementById('messages');
+  pendingMessages.forEach((text, i) => {
+    const div = document.createElement('div');
+    div.className = 'msg user pending';
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = text;
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '编辑';
+    editBtn.onclick = () => {
+      const input = document.getElementById('input');
+      input.value = pendingMessages[i];
+      pendingMessages.splice(i, 1);
+      renderPendingBubbles();
+      input.focus();
+      autoResize(input);
+    };
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '删除';
+    delBtn.onclick = () => {
+      pendingMessages.splice(i, 1);
+      renderPendingBubbles();
+    };
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    div.appendChild(bubble);
+    div.appendChild(actions);
+    container.appendChild(div);
+  });
+  scrollToBottom();
 }
 
 // ====== 新对话 ======
@@ -1918,8 +1975,12 @@ function buildApiMessages() {
 // ====== 发送消息 ======
 async function sendMessage() {
   const input = document.getElementById('input');
-  const text = input.value.trim();
-  if ((!text && !pendingImage) || isGenerating) return;
+  const currentText = input.value.trim();
+  if (currentText) pendingMessages.push(currentText);
+  if ((pendingMessages.length === 0 && !pendingImage) || isGenerating) return;
+  const text = pendingMessages.join('\n');
+  pendingMessages = [];
+  document.querySelectorAll('.msg.pending').forEach(el => el.remove());
 
   const gateway = getSetting('gateway');
   const config = buildConfig();
