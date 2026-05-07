@@ -53,7 +53,7 @@
   --ai-text: #111111;
   --input-text: #111111;
   --input-area-bg: #F7F7F7;
-  --input-area-border: #D9D9D9;
+  --input-area-border: #F7F7F7;
 }
 [data-theme="wx"] body {
   background-image: none;
@@ -144,7 +144,7 @@ html, body {
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   display: inline-block;
-  max-width: 77%;
+  max-width: 80%;
   padding: 10px 14px;
   border-radius: 16px;
   font-size: 19px;
@@ -592,7 +592,7 @@ html, body {
   display:flex; justify-content:center; align-items:center;
   padding:6px 0;
   padding-bottom: max(6px, var(--safe-bottom));
-  background: rgba(208,223,238,0.2);
+  background: var(--input-area-bg);
 }
 .nav-pill {
   display:flex; align-items:center; gap:0;
@@ -1751,7 +1751,7 @@ function renderAll() {
   }
   messages.forEach((msg, i) => {
     if (msg.role === 'user' && msg.segments && msg.segments.length > 1) {
-      msg.segments.forEach((seg) => {
+      msg.segments.forEach((seg, si) => {
         const div = document.createElement('div');
         div.className = 'msg user segment-bubble';
         div.dataset.index = i;
@@ -1759,6 +1759,15 @@ function renderAll() {
         bubble.className = 'msg-bubble';
         bubble.innerHTML = renderMarkdown(seg);
         div.appendChild(bubble);
+        if (si === msg.segments.length - 1) {
+          const v = msg.versions[msg.activeVersion || 0];
+          const actions = document.createElement('div');
+          actions.className = 'msg-actions';
+          actions.innerHTML = `<span class="msg-time">${formatTime(v.timestamp)}</span>`
+            + `<button onclick="editMessage(${i})">编辑</button>`
+            + `<button onclick="deleteMessage(${i})">删除</button>`;
+          div.appendChild(actions);
+        }
         container.appendChild(div);
       });
     } else {
