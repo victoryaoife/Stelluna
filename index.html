@@ -1827,10 +1827,13 @@ function renderAll() {
         div.appendChild(bubble);
         if (si === msg.segments.length - 1) {
           const v = msg.versions[msg.activeVersion || 0];
+          const time = document.createElement('div');
+          time.className = 'msg-time';
+          time.textContent = formatTime(v.timestamp);
+          div.appendChild(time);
           const actions = document.createElement('div');
           actions.className = 'msg-actions';
-          actions.innerHTML = `<span class="msg-time">${formatTime(v.timestamp)}</span>`
-            + `<button onclick="startEdit(${i})">编辑</button>`
+          actions.innerHTML = `<button onclick="startEdit(${i})">编辑</button>`
             + `<button onclick="deleteMessage(${i})">删除</button>`;
           div.appendChild(actions);
         }
@@ -1936,7 +1939,8 @@ function switchVersion(index, dir) {
 }
 // ====== 编辑 ======
 function startEdit(index) {
-  const msgEl = document.querySelector('.msg[data-index="' + index + '"]');
+  const allEls = document.querySelectorAll('.msg[data-index="' + index + '"]');
+  const msgEl = allEls[allEls.length - 1];
   const bubble = msgEl.querySelector('.msg-bubble');
   const actions = msgEl.querySelector('.msg-actions');
 
