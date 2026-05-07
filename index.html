@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
+<link href="remixicon.css" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
@@ -104,31 +105,28 @@ html, body {
 /* ====== Header ====== */
 #header {
   display:flex; align-items:center; justify-content:space-between;
-  padding:12px 16px; 
+  padding:10px 16px; 
   background: var(--header-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--header-border);
-  padding-top: max(12px, env(safe-area-inset-top));
-  position: relative;
+  padding-top: max(10px, env(safe-area-inset-top));
 }
-#header h1 {
-  color: var(--header-text);
-  font-size:17px; font-weight:600;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+.header-left { display:flex; align-items:center; gap:8px; }
+.header-right { display:flex; align-items:center; gap:2px; }
+.header-avatar {
+  width:32px; height:32px; border-radius:50%;
+  overflow:hidden;
 }
-.header-left, .header-right { display:flex; gap:4px; }
-#header button {
-  background:none; border:none; color:var(--text2);
-  font-size:20px; padding:4px 8px; cursor:pointer;
+.header-avatar img {
+  width:100%; height:100%; object-fit:cover;
 }
-.wallet-badge {
-  font-size:10px; background:var(--accent); color:white;
-  border-radius:8px; padding:1px 5px; margin-left:-4px;
-  vertical-align:top;
+#header .header-right button {
+  background:none; border:none; color:var(--header-text);
+  font-size:20px; padding:6px; cursor:pointer; opacity:0.7;
 }
+#header .header-right button:hover { opacity:1; }
+
 
 /* ====== Messages ====== */
 #messages {
@@ -289,12 +287,10 @@ html, body {
 #input-area {
   display:flex; align-items:flex-end; gap:8px;
   padding:10px 12px;
-  padding-bottom: max(10px, var(--safe-bottom));
   background: var(--input-area-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--input-area-border);
-  padding-bottom: max(10px, var(--safe-bottom));
 }
 #input {
   flex:1; background:var(--surface2); border:1px solid var(--border);
@@ -305,11 +301,11 @@ html, body {
 #input:focus { border-color:var(--accent); }
 #input::placeholder { color:var(--text2); }
 .input-actions { display:flex; gap:6px; align-items:flex-end; }
-#img-btn {
+#img-btn, #file-btn {
   background:none; border:none; color:var(--text2);
   font-size:22px; cursor:pointer; padding:6px;
 }
-#img-btn:hover { color:var(--accent); }
+#img-btn:hover, #file-btn:hover { color:var(--accent); }
 #send-btn {
   background:var(--accent); border:none; color:white;
   width:42px; height:42px; border-radius:50%; cursor:pointer;
@@ -531,6 +527,47 @@ html, body {
 }
 #status-bar.show { display:block; }
 
+/* ====== Bottom Nav ====== */
+#bottom-nav {
+  display:flex; justify-content:space-around; align-items:center;
+  padding:6px 0;
+  padding-bottom: max(6px, var(--safe-bottom));
+  background: var(--input-area-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--input-area-border);
+}
+.nav-item {
+  display:flex; flex-direction:column; align-items:center;
+  gap:2px; padding:4px 20px; cursor:pointer;
+  color: var(--text2); transition: color 0.2s;
+}
+.nav-item i { font-size:22px; }
+.nav-item span { font-size:10px; }
+.nav-item.active { color: var(--accent2); }
+
+/* ====== Tab Content ====== */
+.tab-content { display:none; flex-direction:column; flex:1; overflow:hidden; }
+.tab-content.active { display:flex; }
+
+/* ====== Records Page ====== */
+.records-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:12px; padding:20px 16px; overflow-y:auto; flex:1;
+}
+.record-card {
+  background: var(--ai-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius:14px; padding:24px 16px;
+  display:flex; flex-direction:column; align-items:center;
+  gap:8px; cursor:pointer; transition: transform 0.15s;
+}
+.record-card:active { transform:scale(0.96); }
+.record-card i { font-size:28px; color:var(--accent); }
+.record-card span { font-size:13px; color:var(--text); font-weight:500; }
+  
 /* ====== Misc ====== */
 .typing { display:flex; gap:4px; padding:4px 0; }
 .typing span {
@@ -611,40 +648,96 @@ html, body {
 <div id="app">
   <!-- ====== Header ====== -->
   <div id="header">
-    <div class="header-left">
-      <button onclick="newChat()" title="新对话">＋</button>
-      <button onclick="showPanel('memory')" title="记忆库">📑</button>
-      <button onclick="showPanel('calendar')" title="日历">🗓</button>
-    </div>
+  <div class="header-left">
+    <!-- 头像：替换图片改这里的src -->
+    <div class="header-avatar"><img src="Moon.jpg" alt="月"></div>
+    <div class="header-avatar"><img src="Star.jpg" alt="星"></div>
+  </div>
+  <div class="header-right">
+    <!-- 搜索按钮：换图标改下面的class -->
+    <button onclick="openSearch()"><i class="ri-search-ai-2-fill"></i></button>
+    <!-- 到底部按钮：换图标改下面的class -->
+    <button onclick="scrollToBottom()"><i class="ri-arrow-down-circle-fill"></i></button>
+  </div>
+</div>
 
-    <h1>星月栖</h1>
-    <div class="header-right">
-      <button onclick="showPanel('log')" title="工作日志">📜</button>
-      <button onclick="showPanel('wallet')" title="钱包">💎<span id="wallet-badge" class="wallet-badge" style="display:none;"></span></button>
-      <button onclick="showPanel('settings')" title="设置">⚙</button>
+  <!-- ====== Tab: 聊天 ====== -->
+  <div id="tab-chat" class="tab-content active">
+    <div id="messages"></div>
+    <div id="status-bar"></div>
+    <div id="img-preview">
+      <img id="img-preview-src" src="">
+      <button class="remove-img" onclick="removeImage()">✕ 移除</button>
+    </div>
+    <div id="input-area">
+      <button id="img-btn" onclick="document.getElementById('img-input').click()" title="发送图片"><i class="ri-sparkling-2-line"></i></button>
+      <button id="file-btn" onclick="document.getElementById('file-input').click()" title="发送文件"><i class="ri-links-fill"></i></button>
+      <input type="file" id="file-input" accept=".txt,.js,.py,.html,.css,.json,.md,.csv,.xml,.yaml,.yml,.toml,.log,.sql,.sh,.ts,.jsx,.tsx,.vue,.svelte,.go,.rs,.java,.c,.cpp,.h,.rb,.php,.swift,.kt" style="display:none;" onchange="handleFileSelect(event)">
+      <textarea id="input" rows="1" placeholder="说点什么..."
+        oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+      <button id="send-btn" onclick="sendMessage()"><i class="ri-send-plane-line"></i></button>
     </div>
   </div>
 
-  <!-- ====== Messages ====== -->
-  <div id="messages"></div>
-
-  <!-- ====== Status Bar ====== -->
-  <div id="status-bar"></div>
-
-  <!-- ====== Image Preview ====== -->
-  <div id="img-preview">
-    <img id="img-preview-src" src="">
-    <button class="remove-img" onclick="removeImage()">✕ 移除</button>
+  <!-- ====== Tab: 记录 ====== -->
+  <div id="tab-records" class="tab-content">
+    <div class="records-grid">
+      <div class="record-card" onclick="showPanel('memory')">
+        <i class="ri-brain-ai-3-line"></i>
+        <span>记忆库</span>
+      </div>
+      <div class="record-card" onclick="showPanel('calendar')">
+        <i class="ri-calendar-event-line"></i>
+        <span>日历</span>
+      </div>
+      <div class="record-card" onclick="showPanel('wallet')">
+        <i class="ri-diamond-line"></i>
+        <span>钱包</span>
+      </div>
+      <div class="record-card" onclick="showPanel('log')">
+        <i class="ri-terminal-box-line"></i>
+        <span>日志</span>
+      </div>
+    </div>
   </div>
 
-  <!-- ====== Input Area ====== -->
-  <div id="input-area">
-    <button id="img-btn" onclick="document.getElementById('img-input').click()" title="发送图片">🌌</button>
-    <button id="file-btn" onclick="document.getElementById('file-input').click()" title="发送文件" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:6px;">📎</button>
-<input type="file" id="file-input" accept=".txt,.js,.py,.html,.css,.json,.md,.csv,.xml,.yaml,.yml,.toml,.log,.sql,.sh,.ts,.jsx,.tsx,.vue,.svelte,.go,.rs,.java,.c,.cpp,.h,.rb,.php,.swift,.kt" style="display:none;" onchange="handleFileSelect(event)">
-    <textarea id="input" rows="1" placeholder="说点什么..."
-      oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
-    <button id="send-btn" onclick="sendMessage()">↑</button>
+  <!-- ====== Tab: 控制 ====== -->
+  <div id="tab-control" class="tab-content">
+    <div class="records-grid">
+      <!-- 拉取按钮：换图标改下面的class -->
+      <div class="record-card" onclick="pullChatlog()">
+        <i class="ri-download-cloud-line"></i>
+        <span>拉取</span>
+      </div>
+      <div class="record-card" onclick="showPanel('settings')">
+        <i class="ri-sound-module-fill"></i>
+        <span>设置</span>
+      </div>
+      <div class="record-card" onclick="archiveToday()">
+        <i class="ri-archive-line"></i>
+        <span>归档</span>
+      </div>
+      <div class="record-card" onclick="exportTxt()">
+        <i class="ri-file-text-line"></i>
+        <span>导出</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Bottom Nav ====== -->
+  <div id="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('chat')">
+      <i class="ri-chat-ai-line"></i>
+      <span>聊天</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('records')">
+      <i class="ri-file-paper-2-line"></i>
+      <span>记录</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('control')">
+      <i class="ri-sound-module-fill"></i>
+      <span>控制</span>
+    </div>
   </div>
 </div>
 
@@ -970,6 +1063,41 @@ let isFirstAfterArchive = true;
 let currentLocation = null;
 let isExporting = false;
 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+
+// ====== Tab切换 ======
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  const tabs = ['chat','records','control'];
+  document.querySelectorAll('.nav-item')[tabs.indexOf(tab)].classList.add('active');
+  if (tab === 'chat') scrollToBottom();
+}
+
+// ====== 搜索 ======
+function openSearch() {
+  const keyword = prompt('搜索当前对话：');
+  if (!keyword) return;
+  switchTab('chat');
+  const lowerKw = keyword.toLowerCase();
+  const msgEls = document.querySelectorAll('.msg-bubble');
+  let lastMatch = null;
+  msgEls.forEach(el => {
+    el.style.outline = '';
+    if (el.textContent.toLowerCase().includes(lowerKw)) {
+      el.style.outline = '2px solid var(--accent)';
+      lastMatch = el;
+    }
+  });
+  if (lastMatch) {
+    lastMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+      msgEls.forEach(el => el.style.outline = '');
+    }, 4000);
+  } else {
+    showStatus('未找到匹配内容');
+  }
+}
 
 // ====== 初始化 ======
 window.onload = () => {
