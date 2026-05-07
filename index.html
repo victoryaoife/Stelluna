@@ -144,10 +144,10 @@ html, body {
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   display: inline-block;
-  max-width: 95%;
+  max-width: 77%;
   padding: 10px 14px;
   border-radius: 16px;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 500;
   line-height: 1.4;
   word-break: break-word;
@@ -562,6 +562,30 @@ html, body {
   background:none; border:none; color:var(--text2);
   font-size:18px; cursor:pointer; padding:4px;
 }
+
+/* ====== Record Sub Tabs ====== */
+.record-tabs {
+  display:flex; justify-content:center;
+  padding:16px 0 8px;
+}
+.record-pill {
+  display:flex; align-items:center; gap:0;
+  background: rgba(0,0,0,0.3);
+  border-radius:20px; padding:2px;
+}
+.record-tab-item {
+  display:flex; align-items:center; justify-content:center;
+  padding:8px 20px; cursor:pointer;
+  color: rgba(255,255,255,0.4); transition: all 0.2s;
+  border-radius:18px; gap:6px;
+}
+.record-tab-item i { font-size:18px; }
+.record-tab-item span { font-size:11px; display:none; }
+.record-tab-item.active {
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.1);
+}
+.record-tab-item.active span { display:inline; }
   
 /* ====== Bottom Nav ====== */
 #bottom-nav {
@@ -722,22 +746,24 @@ html, body {
 
   <!-- ====== Tab: 记录 ====== -->
   <div id="tab-records" class="tab-content">
-    <div class="records-grid">
-      <div class="record-card" onclick="showPanel('memory')">
-        <i class="ri-brain-ai-3-line"></i>
-        <span>记忆库</span>
-      </div>
-      <div class="record-card" onclick="showPanel('calendar')">
-        <i class="ri-calendar-event-line"></i>
-        <span>日历</span>
-      </div>
-      <div class="record-card" onclick="showPanel('wallet')">
-        <i class="ri-diamond-line"></i>
-        <span>钱包</span>
-      </div>
-      <div class="record-card" onclick="showPanel('log')">
-        <i class="ri-terminal-box-line"></i>
-        <span>日志</span>
+    <div class="record-tabs">
+      <div class="record-pill">
+        <div class="record-tab-item active" onclick="openRecordTab('memory')">
+          <i class="ri-brain-ai-3-line"></i>
+          <span>记忆库</span>
+        </div>
+        <div class="record-tab-item" onclick="openRecordTab('calendar')">
+          <i class="ri-calendar-event-line"></i>
+          <span>日历</span>
+        </div>
+        <div class="record-tab-item" onclick="openRecordTab('wallet')">
+          <i class="ri-diamond-line"></i>
+          <span>钱包</span>
+        </div>
+        <div class="record-tab-item" onclick="openRecordTab('log')">
+          <i class="ri-terminal-box-line"></i>
+          <span>日志</span>
+        </div>
       </div>
     </div>
   </div>
@@ -1113,6 +1139,11 @@ function switchTab(tab) {
   const tabs = ['chat','records','control'];
   document.querySelectorAll('.nav-item')[tabs.indexOf(tab)].classList.add('active');
   if (tab === 'chat') scrollToBottom();
+}
+function openRecordTab(panel) {
+  document.querySelectorAll('.record-tab-item').forEach(t => t.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  showPanel(panel);
 }
 
 // ====== 搜索 ======
