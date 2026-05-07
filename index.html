@@ -115,7 +115,7 @@ html, body {
 .header-left { display:flex; align-items:center; gap:8px; }
 .header-right { display:flex; align-items:center; gap:2px; }
 .header-avatar {
-  width:32px; height:32px; border-radius:50%;
+  width:35px; height:35px; border-radius:70%;
   overflow:hidden;
 }
 .header-avatar img {
@@ -529,22 +529,27 @@ html, body {
 
 /* ====== Bottom Nav ====== */
 #bottom-nav {
-  display:flex; justify-content:space-around; align-items:center;
+  display:flex; justify-content:center; align-items:center;
   padding:6px 0;
   padding-bottom: max(6px, var(--safe-bottom));
-  background: var(--input-area-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--input-area-border);
+  background: rgba(0,0,0,0.25);
+}
+.nav-pill {
+  display:flex; align-items:center; gap:0;
+  background: rgba(0,0,0,0.3);
+  border-radius:20px; padding:2px;
 }
 .nav-item {
-  display:flex; flex-direction:column; align-items:center;
-  gap:2px; padding:4px 20px; cursor:pointer;
-  color: var(--text2); transition: color 0.2s;
+  display:flex; align-items:center; justify-content:center;
+  padding:6px 24px; cursor:pointer;
+  color: rgba(255,255,255,0.4); transition: all 0.2s;
+  border-radius:18px;
 }
-.nav-item i { font-size:22px; }
-.nav-item span { font-size:10px; }
-.nav-item.active { color: var(--accent2); }
+.nav-item i { font-size:16px; }
+.nav-item.active {
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.1);
+}
 
 /* ====== Tab Content ====== */
 .tab-content { display:none; flex-direction:column; flex:1; overflow:hidden; }
@@ -725,18 +730,17 @@ html, body {
   </div>
 
   <!-- ====== Bottom Nav ====== -->
-  <div id="bottom-nav">
-    <div class="nav-item active" onclick="switchTab('chat')">
-      <i class="ri-chat-ai-line"></i>
-      <span>聊天</span>
-    </div>
-    <div class="nav-item" onclick="switchTab('records')">
-      <i class="ri-file-paper-2-line"></i>
-      <span>记录</span>
-    </div>
-    <div class="nav-item" onclick="switchTab('control')">
-      <i class="ri-sound-module-fill"></i>
-      <span>控制</span>
+    <div id="bottom-nav">
+    <div class="nav-pill">
+      <div class="nav-item active" onclick="switchTab('chat')">
+        <i class="ri-chat-ai-line"></i>
+      </div>
+      <div class="nav-item" onclick="switchTab('records')">
+        <i class="ri-file-paper-2-line"></i>
+      </div>
+      <div class="nav-item" onclick="switchTab('control')">
+        <i class="ri-sound-module-fill"></i>
+      </div>
     </div>
   </div>
 </div>
