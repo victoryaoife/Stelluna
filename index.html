@@ -1966,6 +1966,9 @@ function startEdit(index) {
     } else {
       messages[index].content = newText;
     }
+    if (messages[index].segments) {
+      messages[index].segments = newText.split('\n').filter(s => s.trim());
+    }
     saveMessages();
     renderAll();
   };
