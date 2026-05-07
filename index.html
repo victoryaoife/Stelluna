@@ -586,7 +586,25 @@ html, body {
   background: rgba(255,255,255,0.1);
 }
 .record-tab-item.active span { display:inline; }
-  
+
+/* ====== Record Content ====== */
+#record-content {
+  flex:1; display:flex; flex-direction:column; overflow:hidden;
+}
+.panel-overlay.embedded {
+  display:block !important; position:relative;
+  inset:auto; background:transparent;
+  backdrop-filter:none; -webkit-backdrop-filter:none;
+  z-index:1; flex:1; overflow-y:auto;
+  padding:0 16px 32px;
+}
+.panel-overlay.embedded .panel-header { display:none; }
+
+/* ====== Msg Actions Position ====== */
+.msg.user .msg-actions { align-self:flex-start; }
+.msg.ai .msg-actions { align-self:flex-end; }
+
+
 /* ====== Bottom Nav ====== */
 #bottom-nav {
   display:flex; justify-content:center; align-items:center;
@@ -766,6 +784,7 @@ html, body {
         </div>
       </div>
     </div>
+    <div id="record-content"></div>
   </div>
 
   <!-- ====== Tab: 控制 ====== -->
@@ -1132,20 +1151,60 @@ let isExporting = false;
 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
 
 // ====== Tab切换 ======
+let currentRecordPanel = null;
+
 function switchTab(tab) {
+  if (tab === 'control') {
+    showPanel('settings');
+    return;
+  }
+
+  // 离开records时恢复面板
+  if (currentRecordPanel) {
+    const prev = document.getElementById(currentRecordPanel + '-panel');
+    if (prev && prev.classList.contains('embedded')) {
+      prev.classList.remove('embedded');
+      document.getElementById('app').appendChild(prev);
+    }
+  }
+
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   const tabs = ['chat','records','control'];
   document.querySelectorAll('.nav-item')[tabs.indexOf(tab)].classList.add('active');
   if (tab === 'chat') scrollToBottom();
-}
-function openRecordTab(panel) {
-  document.querySelectorAll('.record-tab-item').forEach(t => t.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-  showPanel(panel);
+  if (tab === 'records') openRecordTab(currentRecordPanel || 'memory');
 }
 
+function openRecordTab(panel) {
+  const panelNames = ['memory','calendar','wallet','log'];
+  const idx = panelNames.indexOf(panel);
+  document.querySelectorAll('.record-tab-item').forEach((t,i) => {
+    t.classList.toggle('active', i === idx);
+  });
+
+  // 恢复之前的面板
+  if (currentRecordPanel && currentRecordPanel !== panel) {
+    const prev = document.getElementById(currentRecordPanel + '-panel');
+    if (prev && prev.classList.contains('embedded')) {
+      prev.classList.remove('embedded');
+      document.getElementById('app').appendChild(prev);
+    }
+  }
+
+  const container = document.getElementById('record-content');
+  const panelEl = document.getElementById(panel + '-panel');
+  panelEl.classList.remove('show');
+  panelEl.classList.add('embedded');
+  container.appendChild(panelEl);
+  currentRecordPanel = panel;
+
+  if (panel === 'calendar') loadCalendar();
+  if (panel === 'wallet') loadWallet();
+  if (panel === 'memory') loadMemoryTab();
+}
+  
 // ====== 搜索 ======
 let searchMatches = [];
 let searchIndex = 0;
@@ -1298,12 +1357,19 @@ function setSetting(key, val) {
 
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
-  document.getElementById(name + '-panel').classList.add('show');
-  if (name === 'memory') loadMemoryTab();
-  if (name === 'wallet') loadWallet();
-  if (name === 'log') renderLogs();
+  const target = document.getElementById(name + '-panel');
+  if (target && target.classList.contains('embedded')) {
+    target.classList.remove('embedded');
+    document.getElementById('app').appendChild(target);
+    if (currentRecordPanel === name) currentRecordPanel = null;
+  }
+  document.querySelectorAll('.panel-overlay').forEach(p => p.classList.remove('show'));
+  target.classList.add('show');
   if (name === 'calendar') loadCalendar();
+  if (name === 'wallet') loadWallet();
+  if (name === 'memory') loadMemoryTab();
 }
+
 function hidePanel(name) {
   document.getElementById(name + '-panel').classList.remove('show');
 }
@@ -1764,7 +1830,7 @@ function renderAll() {
           const actions = document.createElement('div');
           actions.className = 'msg-actions';
           actions.innerHTML = `<span class="msg-time">${formatTime(v.timestamp)}</span>`
-            + `<button onclick="editMessage(${i})">编辑</button>`
+            + `<button onclick="startEdit(${i})">编辑</button>`
             + `<button onclick="deleteMessage(${i})">删除</button>`;
           div.appendChild(actions);
         }
@@ -1909,6 +1975,13 @@ function startEdit(index) {
   editActs.appendChild(cancelBtn);
   msgEl.appendChild(editActs);
 }
+
+function deleteMessage(index) {
+  if (!confirm('删除这条消息？')) return;
+  messages.splice(index, 1);
+  saveMessages();
+  renderAll();
+}  
 
 // ====== 图片处理 ======
 function handleImageSelect(event) {
