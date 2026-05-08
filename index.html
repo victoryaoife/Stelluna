@@ -165,8 +165,8 @@ html, body {
   color: var(--ai-text); background:var(--ai-bg);
   border-bottom-left-radius:6px;
 }
-.msg-time { font-size:13px; color:var(--text2); margin-top:3px; padding:0 4px; }
-.msg-bubble p { margin:0.4em 0; }
+.msg-time { font-size:13px; color:var(--text2); padding:0; }
+.msg-bubble p { margin:1em 0; }
 .msg-bubble p:first-child { margin-top:0; }
 .msg-bubble p:last-child { margin-bottom:0; }
 .msg-bubble code {
@@ -220,7 +220,7 @@ html, body {
   background: rgba(200,217,239,0.2);
 }
 .msg.pending .msg-actions {
-  opacity:1;
+  display:flex;
 }
 .msg-bubble ol {
   list-style-position: inside;
@@ -232,10 +232,14 @@ html, body {
 }
   
 .msg-actions {
-  display:flex; gap:6px; margin-top:3px; align-items:center;
-  opacity:0; transition:opacity 0.2s;
+  display:none; gap:6px; align-items:center;
 }
-.msg:hover .msg-actions, .msg:active .msg-actions { opacity:1; }
+.msg-actions.show {
+  display:flex;
+}
+.msg-meta {
+  display:flex; align-items:center; gap:8px; margin-top:3px; padding:0 4px;
+}
 .msg-actions button {
   background:var(--surface2); border:1px solid var(--border);
   color:var(--text2); font-size:15px; padding:2px 8px;
@@ -600,9 +604,6 @@ html, body {
 }
 .panel-overlay.embedded .panel-header { display:none; }
 
-/* ====== Msg Actions Position ====== */
-.msg.user .msg-actions { align-self:flex-start; }
-.msg.ai .msg-actions { align-self:flex-end; }
 
 
 /* ====== Bottom Nav ====== */
@@ -1203,6 +1204,7 @@ function openRecordTab(panel) {
   if (panel === 'calendar') loadCalendar();
   if (panel === 'wallet') loadWallet();
   if (panel === 'memory') loadMemoryTab();
+  if (panel === 'log') renderLogs();
 }
   
 // ====== 搜索 ======
@@ -1555,6 +1557,7 @@ document.addEventListener('click', (e) => {
   if (picker && !picker.contains(e.target)) {
     document.getElementById('model-dropdown').classList.remove('show');
   }
+  document.querySelectorAll('.msg-actions.show').forEach(a => a.classList.remove('show'));
 });
 
 async function fetchModels() {
@@ -1830,12 +1833,21 @@ function renderAll() {
           const time = document.createElement('div');
           time.className = 'msg-time';
           time.textContent = formatTime(v.timestamp);
-          div.appendChild(time);
           const actions = document.createElement('div');
           actions.className = 'msg-actions';
           actions.innerHTML = `<button onclick="startEdit(${i})">编辑</button>`
             + `<button onclick="deleteMessage(${i})">删除</button>`;
-          div.appendChild(actions);
+          const meta = document.createElement('div');
+          meta.className = 'msg-meta';
+          meta.appendChild(time);
+          meta.appendChild(actions);
+          bubble.addEventListener('click', (e) => {
+            if (bubble.contentEditable === 'true') return;
+            document.querySelectorAll('.msg-actions.show').forEach(a => a.classList.remove('show'));
+            actions.classList.toggle('show');
+            e.stopPropagation();
+          });
+          div.appendChild(meta);
         }
         container.appendChild(div);
       });
@@ -1917,9 +1929,20 @@ function createMsgEl(msg, index) {
     actions.appendChild(nav);
   }
 
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.appendChild(time);
+  meta.appendChild(actions);
+
+  bubble.addEventListener('click', (e) => {
+    if (bubble.contentEditable === 'true') return;
+    document.querySelectorAll('.msg-actions.show').forEach(a => a.classList.remove('show'));
+    actions.classList.toggle('show');
+    e.stopPropagation();
+  });
+
   div.appendChild(bubble);
-  div.appendChild(time);
-  div.appendChild(actions);
+  div.appendChild(meta);
   return div;
 }
 
