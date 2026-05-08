@@ -144,7 +144,7 @@ html, body {
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   display: inline-block;
-  max-width: 80%;
+  max-width: 85%;
   padding: 10px 14px;
   border-radius: 16px;
   font-size: 19px;
@@ -159,14 +159,14 @@ html, body {
 }
 .msg.user .msg-bubble {
   color: var(--user-text); background:var(--user-bg);
-  border-bottom-right-radius:6px;
+  border-bottom-right-radius:15px;
 }
 .msg.ai .msg-bubble {
   color: var(--ai-text); background:var(--ai-bg);
-  border-bottom-left-radius:6px;
+  border-bottom-left-radius:15px;
 }
 .msg-time { font-size:13px; color:var(--text2); padding:0; }
-.msg-bubble p { margin:1em 0; }
+.msg-bubble p { margin:0.4em 0; }
 .msg-bubble p:first-child { margin-top:0; }
 .msg-bubble p:last-child { margin-bottom:0; }
 .msg-bubble code {
@@ -212,7 +212,7 @@ html, body {
   outline:1px solid var(--accent);
   border-radius:var(--radius);
 }
-.msg.segment-bubble { margin-bottom:2px; }
+.msg.segment-bubble { margin-bottom:6px; }
 .msg.segment-bubble + .msg.segment-bubble { margin-top:0; }
 .msg.pending .msg-bubble {
   opacity:0.65;
