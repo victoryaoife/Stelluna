@@ -2330,6 +2330,7 @@ async function generateResponse(aiIndex, images = null) {
   const isProactive = messages[aiIndex]?.isProactive || false;
 
   const requestBody = {
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     messages: apiMessages,
     system_prompt: getSetting('sysPrompt', ''),
     config,
