@@ -20,16 +20,16 @@
   --text2: #0F3266;
   --accent: #8CB9E6;
   --accent2: #69A0D6;
-  --user-bg: rgba(200,217,239,0.35);
+  --user-bg: rgba(200,217,239,0.45);
   --ai-bg: rgba(247, 252, 255, 0.65);
   --danger: #ED7E7E;
   --success: #76E3D2;
   --header-bg: rgba(255, 255, 255, 0.55);
   --header-border: rgba(255, 255, 255, 0.3);
   --header-text: #436999;
-  --user-text: #023761;
+  --user-text: #074270;
   --ai-text: #3C77B0;
-  --input-text: #023761;
+  --input-text: #074270;
   --input-area-bg: rgba(255, 255, 255, 0.55);
   --input-area-border: rgba(255, 255, 255, 0.3);
   --radius: 15px;
@@ -163,7 +163,7 @@ html, body {
 }
 .msg.ai .msg-bubble {
   color: var(--ai-text); background:var(--ai-bg);
-  border-bottom-left-radius:4px;
+  border-top-left-radius:4px;
 }
 .msg-time { font-size:13px; color:var(--text2); padding:0; }
 .msg-bubble p { margin:0.4em 0; }
@@ -609,9 +609,10 @@ html, body {
 /* ====== Bottom Nav ====== */
 #bottom-nav {
   display:flex; justify-content:center; align-items:center;
-  padding:3px 0;
+  padding:2px 0;
   padding-bottom: max(6px, var(--safe-bottom));
   background: var(--input-area-bg);
+  backdrop-filter: blur(16px);
 }
 .nav-pill {
   display:flex; align-items:center; gap:0;
@@ -620,7 +621,7 @@ html, body {
 }
 .nav-item {
   display:flex; align-items:center; justify-content:center;
-  padding:3px 24px; cursor:pointer;
+  padding:2px 24px; cursor:pointer;
   color: rgba(255,255,255,0.4); transition: all 0.2s;
   border-radius:18px;
 }
