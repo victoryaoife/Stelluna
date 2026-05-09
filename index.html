@@ -2410,7 +2410,7 @@ async function generateResponse(aiIndex, images = null) {
               if (userMsgIndex >= 0 && messages[userMsgIndex].role === 'user') {
                 const userV = messages[userMsgIndex].versions[messages[userMsgIndex].activeVersion || 0];
                 for (const [placeholder, desc] of Object.entries(json.descriptions)) {
-                  userV.content = userV.content.replace(placeholder, `[图片：${desc}]`);
+                  userV.content = userV.content.replace(placeholder, `\n[图片：${desc}]\n`);
                 }
                 saveMessages();
                 const userEl = document.querySelector('.msg[data-index="' + userMsgIndex + '"]');
