@@ -3680,18 +3680,23 @@ async function detectStatusTags(content) {
       const sepIdx = val.indexOf('|');
       if (sepIdx > 0) {
         const memId = val.slice(0, sepIdx).trim();
-        const newContent = val.slice(sepIdx + 1).trim();
-        if (memId && newContent) {
+        const instruction = val.slice(sepIdx + 1).trim();
+        if (memId && instruction) {
           try {
-            await fetch(gateway + '/api/memory/core/' + memId, {
-              method: 'PATCH',
+            const res = await fetch(gateway + '/api/memory/smart-update', {
+              method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content: newContent }),
+              body: JSON.stringify({ id: parseInt(memId), instruction, config: buildConfig() }),
             });
-            showStatus('记忆已更新 ✓');
+            const result = await res.json();
+            if (result.success) {
+              showStatus('记忆已更新 ✓');
+              cleaned = cleaned.replace(m[0], '<<改记忆>>' + memId + '|' + result.content + '<</改记忆>>'); 
+            } else { 
+              showStatus('⚠ 记忆修改失败: ' + (result.error || '未知错误'), 5000); 
+            }
           } catch (e) {
-            console.error('更新记忆失败:', e);
-            showStatus('⚠ 记忆更新失败: ' + e.message, 3000);
+            console.error('智能改记忆失败:', e); showStatus('⚠ 记忆修改失败: ' + e.message, 5000); 
           }
         }
       }
