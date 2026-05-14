@@ -532,6 +532,22 @@ html, body {
 }
 .provider-tag .remove:hover { opacity:1; }
 
+/* ====== Pool ====== */
+.pool-item {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 10px; background:var(--surface2);
+  border:1px solid var(--border); border-radius:8px;
+  margin-bottom:6px; font-size:13px;
+}
+.pool-item .pool-label { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pool-item button { background:none; border:none; color:var(--text2); cursor:pointer; font-size:14px; padding:2px 4px; }
+.pool-item button:hover { color:var(--accent); }
+.pool-add { display:flex; gap:6px; margin-top:6px; }
+.pool-add select {
+  flex:1; background:var(--surface2); border:1px solid var(--border);
+  color:var(--text); padding:6px 10px; border-radius:8px; font-size:13px; outline:none;
+}
+
 /* ====== Status Bar ====== */
 #status-bar {
   font-size:11px; color:var(--text2); text-align:center;
@@ -863,7 +879,7 @@ html, body {
   <!-- 模型 -->
   <div class="section-title">🪞 模型</div>
   <div class="setting-group model-picker">
-    <label>主模型</label>
+    <label>临时指定模型（留空走轮询池）</label>
     <input id="s-model" placeholder="点击刷新获取模型列表" onclick="showModelDropdown()">
     <button class="refresh-btn" onclick="fetchModels()" title="刷新模型列表">🔄</button>
     <div id="model-dropdown" class="model-dropdown">
@@ -880,46 +896,53 @@ html, body {
 
   <hr class="divider">
   
-  <!-- 主动消息模型 -->
-  <hr class="divider">
-  <div class="section-title">📨 主动消息模型</div>
+  <!-- 模型轮询池 -->
+  <div class="section-title">🔄 模型轮询池</div>
   <div class="setting-group">
-    <label>API 地址</label>
-    <input id="s-proactive-url" placeholder="留空则用主模型">
-  </div>
-  <div class="setting-row">
-    <input id="s-proactive-key" type="password" placeholder="API Key" style="flex:1;">
-    <input id="s-proactive-model" placeholder="模型名" style="flex:0.6;">
-  </div>
-
-  <hr class="divider">
-  
-  <!-- 辅助模型覆盖 -->
-  <div class="section-title">🔧 辅助模型（留空用网关默认值）</div>
-  <div class="setting-group">
-    <label>小模型 (VICE)</label>
-    <div class="setting-row">
-      <input id="s-vice-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-vice-key" type="password" placeholder="Key" style="flex:1;">
-      <input id="s-vice-model" placeholder="模型名" style="flex:0.6;">
+    <label>主模型池（报错自动切下一个，最多10个）</label>
+    <div id="pool-main"></div>
+    <div class="pool-add">
+      <select id="pool-main-select"></select>
+      <button class="small-btn" onclick="addToPool('main')">添加</button>
     </div>
   </div>
   <div class="setting-group">
-    <label>Embedding</label>
+    <label>副模型池 (VICE)</label>
+    <div id="pool-vice"></div>
+    <div class="pool-add">
+      <select id="pool-vice-select"></select>
+      <button class="small-btn" onclick="addToPool('vice')">添加</button>
+    </div>
+  </div>
+  <div class="setting-group">
+    <label>主动消息模型池</label>
+    <div id="pool-proactive"></div>
+    <div class="pool-add">
+      <select id="pool-proactive-select"></select>
+      <button class="small-btn" onclick="addToPool('proactive')">添加</button>
+    </div>
+  </div>
+  <div class="setting-group">
+    <label>视觉模型池</label>
+    <div id="pool-vision"></div>
+    <div class="pool-add">
+      <select id="pool-vision-select"></select>
+      <button class="small-btn" onclick="addToPool('vision')">添加</button>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Embedding 模型 -->
+  <div class="section-title">🔧 Embedding 模型</div>
+  <div class="setting-group">
     <div class="setting-row">
       <input id="s-embed-url" placeholder="API 地址" style="flex:1;">
       <input id="s-embed-key" type="password" placeholder="Key" style="flex:1;">
       <input id="s-embed-model" placeholder="模型名" style="flex:0.6;">
     </div>
   </div>
-  <div class="setting-group">
-    <label>视觉模型</label>
-    <div class="setting-row">
-      <input id="s-vision-url" placeholder="API 地址" style="flex:1;">
-      <input id="s-vision-key" type="password" placeholder="Key" style="flex:1;">
-      <input id="s-vision-model" placeholder="模型名" style="flex:0.6;">
-    </div>
-  </div>
+
 
   <hr class="divider">
 
@@ -1317,6 +1340,7 @@ function unlock() {
   loadMessages();
   renderAll();
   updateProviderTags();
+  renderAllPools();
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
@@ -1375,21 +1399,14 @@ function loadSettings() {
   document.getElementById('s-rag-threshold').value = getSetting('ragThreshold', '0.7');
   document.getElementById('s-rag-count').value = getSetting('ragCount', '5');
 
-  // 辅助模型
-  document.getElementById('s-vice-url').value = getSetting('viceUrl', '');
-  document.getElementById('s-vice-key').value = getSetting('viceKey', '');
-  document.getElementById('s-vice-model').value = getSetting('viceModel', '');
+  // Embedding
   document.getElementById('s-embed-url').value = getSetting('embedUrl', '');
   document.getElementById('s-embed-key').value = getSetting('embedKey', '');
   document.getElementById('s-embed-model').value = getSetting('embedModel', '');
-  document.getElementById('s-vision-url').value = getSetting('visionUrl', '');
-  document.getElementById('s-vision-key').value = getSetting('visionKey', '');
-  document.getElementById('s-vision-model').value = getSetting('visionModel', '');
 
-  // 主动消息模型
-  document.getElementById('s-proactive-url').value = getSetting('proactiveUrl', '');
-  document.getElementById('s-proactive-key').value = getSetting('proactiveKey', '');
-  document.getElementById('s-proactive-model').value = getSetting('proactiveModel', '');
+  // 轮询池
+  try { modelPools = JSON.parse(getSetting('modelPools', '{"main":[],"vice":[],"proactive":[],"vision":[]}')); } catch { modelPools = { main: [], vice: [], proactive: [], vision: [] }; }
+
 
   // Toggles
   if (getSetting('proactiveEnabled') === 'true') {
@@ -1433,25 +1450,16 @@ function saveSettings() {
   setSetting('ragThreshold', document.getElementById('s-rag-threshold').value);
   setSetting('ragCount', document.getElementById('s-rag-count').value);
 
-  // 辅助模型
-  setSetting('viceUrl', document.getElementById('s-vice-url').value.trim());
-  setSetting('viceKey', document.getElementById('s-vice-key').value.trim());
-  setSetting('viceModel', document.getElementById('s-vice-model').value.trim());
+  // Embedding
   setSetting('embedUrl', document.getElementById('s-embed-url').value.trim());
   setSetting('embedKey', document.getElementById('s-embed-key').value.trim());
   setSetting('embedModel', document.getElementById('s-embed-model').value.trim());
-  setSetting('visionUrl', document.getElementById('s-vision-url').value.trim());
-  setSetting('visionKey', document.getElementById('s-vision-key').value.trim());
-  setSetting('visionModel', document.getElementById('s-vision-model').value.trim());
+
 
   hidePanel('settings');
   startProactiveTimer(); // 重启定时器
   showStatus('设置已保存 ✓');
 
-  // 主动消息模型
-  setSetting('proactiveUrl', document.getElementById('s-proactive-url').value.trim());
-  setSetting('proactiveKey', document.getElementById('s-proactive-key').value.trim());
-  setSetting('proactiveModel', document.getElementById('s-proactive-model').value.trim());
 }
 
 // ====== 状态栏 ======
@@ -1659,8 +1667,70 @@ function toggleFavorite(e, modelId) {
   }
   setSetting('favoriteModels', JSON.stringify(favoriteModels));
   renderModelList(document.querySelector('.model-search')?.value || '');
+  renderAllPools();
 }
 
+// ====== 轮询池 ======
+function renderPool(poolName) {
+  const container = document.getElementById('pool-' + poolName);
+  if (!container) return;
+  const pool = modelPools[poolName] || [];
+  if (pool.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px 0;">空</div>';
+  } else {
+    container.innerHTML = pool.map((item, i) => `
+      <div class="pool-item">
+        <span class="pool-label">${item.pname} - ${item.model}</span>
+        <button onclick="moveInPool('${poolName}',${i},-1)" title="上移">↑</button>
+        <button onclick="moveInPool('${poolName}',${i},1)" title="下移">↓</button>
+        <button onclick="removeFromPool('${poolName}',${i})" title="移除">✕</button>
+      </div>
+    `).join('');
+  }
+  const select = document.getElementById('pool-' + poolName + '-select');
+  if (select) {
+    const poolKeys = pool.map(p => p.pname + ':' + p.model);
+    const available = favoriteModels.filter(f => !poolKeys.includes(f.pname + ':' + f.model));
+    select.innerHTML = available.length > 0
+      ? available.map(f => `<option value="${f.pname}:${f.model}">${f.pname} - ${f.model}</option>`).join('')
+      : '<option value="">无可用星标模型</option>';
+  }
+}
+
+function renderAllPools() {
+  ['main', 'vice', 'proactive', 'vision'].forEach(renderPool);
+}
+
+function addToPool(poolName) {
+  const select = document.getElementById('pool-' + poolName + '-select');
+  const val = select.value;
+  if (!val) return;
+  const pool = modelPools[poolName] || [];
+  if (pool.length >= 10) { alert('最多10个'); return; }
+  const sepIdx = val.indexOf(':');
+  const pname = val.slice(0, sepIdx);
+  const model = val.slice(sepIdx + 1);
+  if (pool.some(p => p.pname === pname && p.model === model)) return;
+  pool.push({ pname, model });
+  modelPools[poolName] = pool;
+  setSetting('modelPools', JSON.stringify(modelPools));
+  renderPool(poolName);
+}
+
+function removeFromPool(poolName, index) {
+  modelPools[poolName].splice(index, 1);
+  setSetting('modelPools', JSON.stringify(modelPools));
+  renderPool(poolName);
+}
+
+function moveInPool(poolName, index, dir) {
+  const pool = modelPools[poolName];
+  const newIndex = index + dir;
+  if (newIndex < 0 || newIndex >= pool.length) return;
+  [pool[index], pool[newIndex]] = [pool[newIndex], pool[index]];
+  setSetting('modelPools', JSON.stringify(modelPools));
+  renderPool(poolName);
+}
 
 // ====== 主题 ======
 function setTheme(theme) {
