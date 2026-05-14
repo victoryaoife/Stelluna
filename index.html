@@ -1487,6 +1487,36 @@ function removeProvider(index) {
   updateProviderTags();
 }
 
+function editProvider(index) {
+  const p = providers[index];
+  const container = document.getElementById('provider-row-' + index);
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;">
+      <div class="setting-row">
+        <input id="edit-prov-name-${index}" value="${p.name}" placeholder="名称" style="flex:0.5;">
+        <input id="edit-prov-url-${index}" value="${p.url}" placeholder="API 地址（到 /v1）" style="flex:1;">
+      </div>
+      <div class="setting-row">
+        <input id="edit-prov-key-${index}" type="password" value="${p.key}" placeholder="API Key" style="flex:1;">
+        <button class="small-btn" onclick="saveProviderEdit(${index})">保存</button>
+        <button class="small-btn" onclick="renderProvidersList()">取消</button>
+      </div>
+    </div>
+  `;
+}
+
+function saveProviderEdit(index) {
+  const name = document.getElementById('edit-prov-name-' + index).value.trim();
+  const url = document.getElementById('edit-prov-url-' + index).value.trim();
+  const key = document.getElementById('edit-prov-key-' + index).value.trim();
+  if (!name || !url || !key) { alert('请填写完整'); return; }
+  providers[index] = { name, url, key };
+  setSetting('providers', JSON.stringify(providers));
+  renderProvidersList();
+  updateProviderTags();
+  showStatus('供应商已更新 ✓');
+}
+  
 function setActiveProvider(index) {
   activeProvider = index;
   setSetting('activeProvider', String(index));
@@ -1500,10 +1530,13 @@ function renderProvidersList() {
     return;
   }
   el.innerHTML = providers.map((p, i) => `
-    <div class="setting-row">
-      <span style="font-size:13px;flex:0.3;">${p.name}</span>
-      <span style="font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;">${p.url}</span>
-      <button class="small-btn danger" onclick="removeProvider(${i})">删除</button>
+    <div id="provider-row-${i}">
+      <div class="setting-row">
+        <span style="font-size:13px;flex:0.3;">${p.name}</span>
+        <span style="font-size:12px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;">${p.url}</span>
+        <button class="small-btn" onclick="editProvider(${i})">编辑</button>
+        <button class="small-btn danger" onclick="removeProvider(${i})">删除</button>
+      </div>
     </div>
   `).join('');
 }
