@@ -925,27 +925,19 @@ html, body {
 
   <!-- AI 参数 -->
   <div class="section-title">🎚️ AI 参数</div>
-  <div class="setting-group">
-    <label>上下文轮数</label>
-    <div class="slider-group">
-      <input type="range" id="s-context" min="1" max="300" value="100" oninput="document.getElementById('ctx-val').textContent=this.value">
-      <span id="ctx-val" class="slider-value">20</span>
-    </div>
+  <div class="setting-row">
+    <label style="font-size:13px;color:var(--text2);white-space:nowrap;">上下文轮数</label>
+    <input type="number" id="s-context" value="20" min="1" max="300" style="width:80px;">
   </div>
-  <div class="setting-group">
-    <label>温度 (Temperature)</label>
-    <div class="slider-group">
-      <input type="range" id="s-temp" min="0" max="2" step="0.1" value="0.7" oninput="document.getElementById('temp-val').textContent=this.value">
-      <span id="temp-val" class="slider-value">0.7</span>
-    </div>
+  <div class="setting-row">
+    <label style="font-size:13px;color:var(--text2);white-space:nowrap;">温度</label>
+    <input type="number" id="s-temp" value="0.7" min="0" max="2" step="0.1" style="width:80px;">
   </div>
-  <div class="setting-group">
-    <label>思考预算 (Thinking Budget)（0=关闭）</label>
-    <div class="slider-group">
-      <input type="range" id="s-thinking" min="0" max="32000" step="1000" value="0" oninput="document.getElementById('think-val').textContent=this.value">
-      <span id="think-val" class="slider-value">0</span>
-    </div>
+  <div class="setting-row">
+    <label style="font-size:13px;color:var(--text2);white-space:nowrap;">思考预算（0=关闭）</label>
+    <input type="number" id="s-thinking" value="0" min="0" max="32000" step="1000" style="width:100px;">
   </div>
+
 
   <hr class="divider">
 
@@ -961,13 +953,11 @@ html, body {
     <label>启用主动消息</label>
     <div id="toggle-proactive" class="toggle" onclick="toggleProactive()"></div>
   </div>
-  <div class="setting-group">
-    <label>沉默触发时间（分钟）</label>
-    <div class="slider-group">
-      <input type="range" id="s-proactive-delay" min="10" max="180" step="10" value="40" oninput="document.getElementById('proactive-val').textContent=this.value">
-      <span id="proactive-val" class="slider-value">40</span>
-    </div>
+  <div class="setting-row">
+    <label style="font-size:13px;color:var(--text2);white-space:nowrap;">沉默触发时间（分钟）</label>
+    <input type="number" id="s-proactive-delay" value="40" min="10" max="180" step="10" style="width:80px;">
   </div>
+
 
   <hr class="divider">
 
@@ -982,20 +972,15 @@ html, body {
 
   <!-- RAG -->
   <div class="section-title">🔍 RAG 记忆检索</div>
-  <div class="setting-group">
-    <label>相似度阈值</label>
-    <div class="slider-group">
-      <input type="range" id="s-rag-threshold" min="0.3" max="0.95" step="0.05" value="0.7" oninput="document.getElementById('rag-val').textContent=this.value">
-      <span id="rag-val" class="slider-value">0.7</span>
-    </div>
+  <div class="setting-row">
+    <label style="font-size:13px;color:var(--text2);white-space:nowrap;">相似度阈值</label>
+    <input type="number" id="s-rag-threshold" value="0.7" min="0.3" max="0.95" step="0.05" style="width:80px;">
   </div>
-  <div class="setting-group">
-    <label>最大匹配条数</label>
-    <div class="slider-group">
-      <input type="range" id="s-rag-count" min="1" max="15" step="1" value="5" oninput="document.getElementById('ragc-val').textContent=this.value">
-      <span id="ragc-val" class="slider-value">5</span>
-    </div>
+  <div class="setting-row">
+    <label style="font-size:13px;color:var(--text2);white-space:nowrap;">最大匹配条数</label>
+    <input type="number" id="s-rag-count" value="5" min="1" max="15" step="1" style="width:80px;">
   </div>
+
 
   <hr class="divider">
 
@@ -1382,18 +1367,12 @@ function loadSettings() {
   document.getElementById('s-gateway').value = getSetting('gateway', '');
   document.getElementById('s-model').value = getSetting('model', '');
   document.getElementById('s-context').value = getSetting('contextN', '20');
-  document.getElementById('ctx-val').textContent = getSetting('contextN', '20');
   document.getElementById('s-temp').value = getSetting('temperature', '0.7');
-  document.getElementById('temp-val').textContent = getSetting('temperature', '0.7');
   document.getElementById('s-thinking').value = getSetting('thinkingBudget', '0');
-  document.getElementById('think-val').textContent = getSetting('thinkingBudget', '0');
   document.getElementById('s-prompt').value = getSetting('sysPrompt', '');
   document.getElementById('s-proactive-delay').value = getSetting('proactiveDelay', '40');
-  document.getElementById('proactive-val').textContent = getSetting('proactiveDelay', '40');
   document.getElementById('s-rag-threshold').value = getSetting('ragThreshold', '0.7');
-  document.getElementById('rag-val').textContent = getSetting('ragThreshold', '0.7');
   document.getElementById('s-rag-count').value = getSetting('ragCount', '5');
-  document.getElementById('ragc-val').textContent = getSetting('ragCount', '5');
 
   // 辅助模型
   document.getElementById('s-vice-url').value = getSetting('viceUrl', '');
