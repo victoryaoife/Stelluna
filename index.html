@@ -2230,6 +2230,15 @@ function newChat() {
 }
 
 // ====== 获取配置对象 ======
+function resolvePool(poolName) {
+  const pool = modelPools[poolName] || [];
+  return pool.map(entry => {
+    const provider = providers.find(p => p.name === entry.pname);
+    if (!provider) return null;
+    return { url: provider.url, key: provider.key, model: entry.model, pname: entry.pname };
+  }).filter(Boolean);
+}
+  
 function buildConfig() {
   const provider = getActiveProvider();
   const config = {
@@ -2242,19 +2251,10 @@ function buildConfig() {
     stream: getSetting('streamEnabled', 'true') !== 'false',
   };
 
-  // 主模型从供应商取
   if (provider) {
     config.main_api_url = provider.url;
     config.main_api_key = provider.key;
   }
-
-  // 辅助模型覆盖
-  const viceUrl = getSetting('viceUrl');
-  const viceKey = getSetting('viceKey');
-  const viceModel = getSetting('viceModel');
-  if (viceUrl) config.vice_api_url = viceUrl;
-  if (viceKey) config.vice_api_key = viceKey;
-  if (viceModel) config.vice_model = viceModel;
 
   const embedUrl = getSetting('embedUrl');
   const embedKey = getSetting('embedKey');
@@ -2263,20 +2263,10 @@ function buildConfig() {
   if (embedKey) config.embed_api_key = embedKey;
   if (embedModel) config.embed_model = embedModel;
 
-  const visionUrl = getSetting('visionUrl');
-  const visionKey = getSetting('visionKey');
-  const visionModel = getSetting('visionModel');
-  if (visionUrl) config.vision_api_url = visionUrl;
-  if (visionKey) config.vision_api_key = visionKey;
-  if (visionModel) config.vision_model = visionModel;
-
-  // 主动消息模型
-  const proactiveUrl = getSetting('proactiveUrl');
-  const proactiveKey = getSetting('proactiveKey');
-  const proactiveModel = getSetting('proactiveModel');
-  if (proactiveUrl) config.proactive_api_url = proactiveUrl;
-  if (proactiveKey) config.proactive_api_key = proactiveKey;
-  if (proactiveModel) config.proactive_model = proactiveModel;
+  config.main_pool = resolvePool('main');
+  config.vice_pool = resolvePool('vice');
+  config.proactive_pool = resolvePool('proactive');
+  config.vision_pool = resolvePool('vision');
   
   return config;
 }
@@ -2501,6 +2491,10 @@ async function generateResponse(aiIndex, images = null) {
           try {
             const json = JSON.parse(dataStr);
             // 处理图片描述回写
+            if (json.type === 'model_info') {
+              showStatus(`🪞 ${json.provider} / ${json.model}`, 5000);
+              continue;
+            }
             if (json.type === 'image_desc' && json.descriptions) {
               const userMsgIndex = aiIndex - 1;
               if (userMsgIndex >= 0 && messages[userMsgIndex].role === 'user') {
