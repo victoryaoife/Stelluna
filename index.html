@@ -2302,7 +2302,7 @@ async function sendMessage() {
   const gateway = getSetting('gateway');
   const config = buildConfig();
   if (!gateway) { alert('请先在设置中填写网关地址'); return; }
-  if (!config.model) { alert('请先选择模型'); return; }
+  if (!config.model && (!config.main_pool || config.main_pool.length === 0)) { alert('请指定模型或配置主模型轮询池'); return; }
 
   // 构建用户消息内容
   let userContent = text;
