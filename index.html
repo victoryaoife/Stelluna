@@ -1131,6 +1131,7 @@ let activeProvider = 0;
 let favoriteModels = [];
 let allModels = [];
 let currentMemoryTab = 'core';
+let modelPools = { main: [], vice: [], proactive: [], vision: [] };
 let proactiveTimer = null;
 let isFirstAfterArchive = true;
 let currentLocation = null;
@@ -1406,7 +1407,14 @@ function loadSettings() {
   activeProvider = parseInt(getSetting('activeProvider', '0'));
 
   // 收藏模型
-  try { favoriteModels = JSON.parse(getSetting('favoriteModels', '[]')); } catch { favoriteModels = []; }
+  try {
+    favoriteModels = JSON.parse(getSetting('favoriteModels', '[]'));
+    if (favoriteModels.length > 0 && typeof favoriteModels[0] === 'string') {
+      favoriteModels = favoriteModels.map(m => ({ pid: 0, pname: providers[0]?.name || '默认', model: m }));
+      setSetting('favoriteModels', JSON.stringify(favoriteModels));
+    }
+  } catch { favoriteModels = []; }
+
 
   // 归档状态
   isFirstAfterArchive = getSetting('isFirstAfterArchive', 'true') === 'true';
@@ -1609,8 +1617,9 @@ function filterModels(keyword) {
 function renderModelList(filter) {
   const list = document.getElementById('model-list');
   const kw = filter.toLowerCase();
-  const faved = allModels.filter(m => favoriteModels.includes(m) && (!kw || m.toLowerCase().includes(kw)));
-  const others = allModels.filter(m => !favoriteModels.includes(m) && (!kw || m.toLowerCase().includes(kw)));
+  const isFaved = m => favoriteModels.some(f => f.model === m && f.pid === activeProvider);
+  const faved = allModels.filter(m => isFaved(m) && (!kw || m.toLowerCase().includes(kw)));
+  const others = allModels.filter(m => !isFaved(m) && (!kw || m.toLowerCase().includes(kw)));
 
   let html = '';
   if (faved.length > 0) {
@@ -1641,12 +1650,17 @@ function selectModel(modelId) {
 
 function toggleFavorite(e, modelId) {
   e.stopPropagation();
-  const idx = favoriteModels.indexOf(modelId);
-  if (idx >= 0) favoriteModels.splice(idx, 1);
-  else favoriteModels.push(modelId);
+  const idx = favoriteModels.findIndex(f => f.model === modelId && f.pid === activeProvider);
+  if (idx >= 0) {
+    favoriteModels.splice(idx, 1);
+  } else {
+    const p = providers[activeProvider];
+    favoriteModels.push({ pid: activeProvider, pname: p ? p.name : '未知', model: modelId });
+  }
   setSetting('favoriteModels', JSON.stringify(favoriteModels));
   renderModelList(document.querySelector('.model-search')?.value || '');
 }
+
 
 // ====== 主题 ======
 function setTheme(theme) {
