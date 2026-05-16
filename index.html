@@ -1706,7 +1706,7 @@ function addToPool(poolName) {
   const val = select.value;
   if (!val) return;
   const pool = modelPools[poolName] || [];
-  if (pool.length >= 10) { alert('最多10个'); return; }
+  if (pool.length >= 30) { alert('最多30个'); return; }
   const sepIdx = val.indexOf(':');
   const pname = val.slice(0, sepIdx);
   const model = val.slice(sepIdx + 1);
