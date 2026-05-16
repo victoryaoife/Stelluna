@@ -2642,10 +2642,12 @@ async function generateResponse(aiIndex, images = null) {
 function startProactiveTimer() {
   stopProactiveTimer();
   if (getSetting('proactiveEnabled') !== 'true') return;
+  if (isApp) return;
 
   const delay = parseInt(getSetting('proactiveDelay', '40')) * 60 * 1000;
   proactiveTimer = setInterval(() => checkProactive(), delay);
 }
+
 
 let isCheckingProactive = false;  
 
