@@ -980,6 +980,11 @@ html, body {
     <label style="font-size:13px;color:var(--text2);white-space:nowrap;">沉默触发时间（分钟）</label>
     <input type="number" id="s-proactive-delay" value="40" min="10" max="180" step="10" style="width:80px;">
   </div>
+  <div class="setting-row">
+    <label style="font-size:13px;color:var(--text2);white-space:nowrap;">轮询间隔（分钟）</label>
+    <input type="number" id="s-proactive-poll" value="20" min="5" max="60" step="5" style="width:80px;">
+  </div>
+
 
 
   <hr class="divider">
@@ -1396,6 +1401,7 @@ function loadSettings() {
   document.getElementById('s-thinking').value = getSetting('thinkingBudget', '0');
   document.getElementById('s-prompt').value = getSetting('sysPrompt', '');
   document.getElementById('s-proactive-delay').value = getSetting('proactiveDelay', '40');
+  document.getElementById('s-proactive-poll').value = getSetting('proactivePoll', '20');
   document.getElementById('s-rag-threshold').value = getSetting('ragThreshold', '0.7');
   document.getElementById('s-rag-count').value = getSetting('ragCount', '5');
 
@@ -1447,6 +1453,8 @@ function saveSettings() {
   setSetting('thinkingBudget', document.getElementById('s-thinking').value);
   setSetting('sysPrompt', document.getElementById('s-prompt').value);
   setSetting('proactiveDelay', document.getElementById('s-proactive-delay').value);
+  setSetting('proactivePoll', document.getElementById('s-proactive-poll').value);
+  syncProactiveToNative();
   setSetting('ragThreshold', document.getElementById('s-rag-threshold').value);
   setSetting('ragCount', document.getElementById('s-rag-count').value);
 
@@ -1753,8 +1761,19 @@ function toggleProactive() {
   const el = document.getElementById('toggle-proactive');
   el.classList.toggle('on');
   setSetting('proactiveEnabled', el.classList.contains('on') ? 'true' : 'false');
+  syncProactiveToNative();
   startProactiveTimer();
 }
+
+function syncProactiveToNative() {
+  if (window.NativeBridge) {
+    const enabled = getSetting('proactiveEnabled') === 'true';
+    const pollInterval = parseInt(getSetting('proactivePoll', '20'));
+    const silenceMinutes = parseInt(getSetting('proactiveDelay', '40'));
+    window.NativeBridge.saveProactiveSettings(JSON.stringify({ enabled, pollInterval, silenceMinutes }));
+  }
+}
+
 function toggleLocation() {
   const el = document.getElementById('toggle-location');
   el.classList.toggle('on');
