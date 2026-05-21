@@ -1898,9 +1898,16 @@ function toggleCodeCollapse(id) {
   if (btn) btn.textContent = isCollapsed ? '收起' : btn.textContent.replace('收起', '展开全部');
 }
 function extractThinking(text) {
-  const open = '<thinking>', close = '</thinking>';
-  const start = text.indexOf(open);
-  if (start === -1) return { display: text, thinking: '', inProgress: false };
+  let open, close, start;
+  const s1 = text.indexOf('<thinking>');
+  const s2 = text.indexOf('<think>');
+  if (s1 !== -1 && (s2 === -1 || s1 &lt;= s2)) {
+    open = '<thinking>'; close = '</thinking>'; start = s1;
+  } else if (s2 !== -1) {
+    open = '<think>'; close = '</think>'; start = s2;
+  } else {
+    return { display: text, thinking: '', inProgress: false };
+  }
   const end = text.indexOf(close);
   if (end === -1) {
     return {
@@ -1915,6 +1922,7 @@ function extractThinking(text) {
     inProgress: false,
   };
 }
+
 function formatTime(ts) {
   if (!ts) return '';
   const d = new Date(ts);
@@ -1983,8 +1991,8 @@ function createMsgEl(msg, index) {
   const activeV = msg.versions ? msg.versions[msg.activeVersion || 0] : msg;
   let content = activeV.content || '';
   let thinking = activeV.thinking || '';
-   // 兼容旧消息：content里残留的thinking标签提取出来
-  if (!thinking && content.includes('<thinking>')) {
+   // 兼容旧消息：content里残留的thinking/think标签提取出来
+  if (!thinking && (content.includes('<thinking>') || content.includes('<think>'))) {
     const ext = extractThinking(content);
     content = ext.display;
     thinking = ext.thinking;
