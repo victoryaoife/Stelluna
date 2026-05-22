@@ -1330,7 +1330,11 @@ function lockAction() {
     }
   } else {
     const confirmEl = document.getElementById('lock-confirm');
-    if (confirmEl.style.display === 'none' || !confirmEl.offsetParent) { confirmEl.style.display = 'block'; return; }
+    if (!confirmEl.value && confirmEl.offsetHeight === 0) {
+      confirmEl.style.cssText = 'display:block !important;';
+      document.getElementById('lock-error').textContent = '请在第二个框里再输一次密码';
+      return;
+    }
     const confirmVal = document.getElementById('lock-confirm').value;
     if (input.length < 4) {
       error.textContent = '密码至少4位';
