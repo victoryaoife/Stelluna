@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>星月栖 · Stelluna</title>
 <meta name="theme-color" content="#0f0f1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1297,15 +1299,18 @@ window.onload = () => {
 // ====== 锁屏 ======
 function checkLock() {
   const pwd = localStorage.getItem('lockPassword');
+  const confirmInput = document.getElementById('lock-confirm');
   if (pwd) {
     document.getElementById('lock-title').textContent = '欢迎回来';
     document.getElementById('lock-subtitle').textContent = '请输入密码';
-    document.getElementById('lock-confirm').style.display = 'none';
+    confirmInput.style.display = 'none';
+    confirmInput.value = '';
     document.getElementById('lock-reset').style.display = 'block';
   } else {
     document.getElementById('lock-title').textContent = '设置密码';
     document.getElementById('lock-subtitle').textContent = '为星月栖设置一个专属密码';
-    document.getElementById('lock-confirm').style.display = 'block';
+    confirmInput.style.display = 'block';
+    confirmInput.value = '';
     document.getElementById('lock-reset').style.display = 'none';
   }
 }
@@ -1324,6 +1329,8 @@ function lockAction() {
       document.getElementById('lock-input').value = '';
     }
   } else {
+    const confirmEl = document.getElementById('lock-confirm');
+    if (confirmEl.style.display === 'none' || !confirmEl.offsetParent) { confirmEl.style.display = 'block'; return; }
     const confirmVal = document.getElementById('lock-confirm').value;
     if (input.length < 4) {
       error.textContent = '密码至少4位';
