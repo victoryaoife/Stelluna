@@ -735,7 +735,7 @@ html, body {
 <body>
 
 <!-- ====== Lock Screen ====== -->
-<div id="lock-screen">
+<div id="lock-screen" class="hidden">
   <div class="lock-emoji">🌙</div>
   <h2 id="lock-title">设置密码</h2>
   <div class="lock-subtitle" id="lock-subtitle">为星月栖设置一个专属密码</div>
@@ -746,7 +746,7 @@ html, body {
   <div class="lock-reset" id="lock-reset" style="display:none;" onclick="resetPassword()">忘记密码？重置所有数据</div>
 </div>
   
-<div id="app">
+<div id="app" style="display:flex;">
   <!-- ====== Header ====== -->
   <div id="header">
   <div class="header-left">
