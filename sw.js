@@ -1,3 +1,5 @@
+const CACHE = 'stelluna-v4';
+
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
@@ -5,18 +7,21 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes(self.location.origin)) {
-    event.respondWith(
-      fetch(event.request, { cache: 'no-store' })
-        .catch(() => caches.match(event.request))
-    );
-  }
+  if (event.request.method !== 'GET') return;
+  if (!event.request.url.includes(self.location.origin)) return;
+  event.respondWith(
+    fetch(event.request).then(res => {
+      const clone = res.clone();
+      caches.open(CACHE).then(c => c.put(event.request, clone));
+      return res;
+    }).catch(() => caches.match(event.request))
+  );
 });
 
 self.addEventListener('push', event => {
