@@ -1335,7 +1335,7 @@ function unlock() {
   renderAllPools();
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
-  syncFromCloud(false);
+  if (messages.length === 0) syncFromCloud(false);
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
   if (isApp) {
     requestLocalNotifPermission();
@@ -1822,7 +1822,11 @@ async function syncFromCloud(force = false) {
     const data = await res.json();
     if (!data || !data.messages_json || data.messages_json.length === 0) return;
     if (data.messages_json.length > messages.length || force) {
-      messages = data.messages_json;
+      messages = data.messages_json.map(m => ({
+        role: m.role,
+        versions: [{ content: m.content || '', timestamp: m.timestamp || '' }],
+        activeVersion: 0,
+      }));
       saveMessages();
       renderAll();
       showStatus('已同步云端记录 ✓');
@@ -2708,7 +2712,6 @@ async function checkBgProactive() {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     checkBgProactive();
-    syncFromCloud(true);
   }
   if (!document.hidden && !isApp && getSetting('proactiveEnabled') === 'true') {
     let lastUserTs = null;
@@ -3020,13 +3023,18 @@ async function pullChatlog() {
     const res = await fetch(`${gateway}/api/memory/chatlogs/${date}`);
     const data = await res.json();
 
-    if (!data || !data.content) {
+    if (!data || (!data.content && !data.messages_json)) {
       alert('该日期没有聊天记录');
       return;
     }
 
-    // 解析聊天记录格式：[HH:MM] 星语：内容
-    const parsed = parseChatlog(data.content);
+    const parsed = data.messages_json
+      ? data.messages_json.map(m => ({
+          role: m.role,
+          versions: [{ content: m.content || '', timestamp: m.timestamp || '' }],
+          activeVersion: 0,
+        }))
+      : parseChatlog(data.content);
     if (parsed.length === 0) {
       alert('解析失败或记录为空');
       return;
