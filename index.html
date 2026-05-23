@@ -1335,6 +1335,7 @@ function unlock() {
   renderAllPools();
   startProactiveTimer();
   if (getSetting('sendLocation') === 'true') requestLocation();
+  syncFromCloud(false);
   try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
   if (isApp) {
     requestLocalNotifPermission();
@@ -1810,6 +1811,24 @@ function saveMessages() {
 }
 function loadMessages() {
   try { messages = JSON.parse(localStorage.getItem('chatMessages') || '[]'); } catch { messages = []; }
+}
+async function syncFromCloud(force = false) {
+  const gateway = getSetting('gateway');
+  if (!gateway) return;
+  const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  try {
+    const res = await fetch(`${gateway}/api/memory/chatlogs/${today}`);
+    const data = await res.json();
+    if (!data || !data.content) return;
+    const cloudMessages = parseChatlog(data.content);
+    if (cloudMessages.length === 0) return;
+    if (cloudMessages.length > messages.length || force) {
+      messages = cloudMessages;
+      saveMessages();
+      renderAll();
+      showStatus('已同步云端记录 ✓');
+    }
+  } catch (e) {}
 }
 
 // ====== 工具函数 ======
@@ -2689,6 +2708,7 @@ async function checkBgProactive() {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     checkBgProactive();
+    syncFromCloud(true);
   }
   if (!document.hidden && !isApp && getSetting('proactiveEnabled') === 'true') {
     let lastUserTs = null;
