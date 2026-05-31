@@ -2897,7 +2897,7 @@ async function archiveToday() {
     const res = await fetch(gateway + '/api/archive', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, messages: archiveMessages, diary, config }),
+      body: JSON.stringify({ date, messages: archiveMessages, diary, config, skip_messages_write: true }),
     });
     const result = await res.json();
 
@@ -2961,7 +2961,8 @@ async function exportTxt() {
             hour12: false
           }) + '] '
         : '';
-      txt += `${time}${name}：\n${v.content || ''}\n\n`;
+      const cleanContent = (v.content || '').replace(/⟦[^⟧]*⟧\s*/g, '');
+      txt += `${time}${name}：\n${cleanContent}\n\n`;
     });
 
     const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
