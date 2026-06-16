@@ -1,4 +1,4 @@
-const CACHE = 'stelluna-v4';
+const CACHE = 'stelluna-v5';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -6,26 +6,58 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  if (!event.request.url.includes(self.location.origin)) return;
+  const req = event.request;
+  const url = new URL(req.url);
+
+  if (req.method !== 'GET') return;
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
+
+  if (req.mode === 'navigate') {
+    event.respondWith(fetch(req).catch(() => caches.match('./index.html')));
+    return;
+  }
+
+  const isStatic =
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.jpg') ||
+    url.pathname.endsWith('.jpeg') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.ico') ||
+    url.pathname.endsWith('.webp') ||
+    url.pathname.endsWith('.woff') ||
+    url.pathname.endsWith('.woff2');
+
+  if (!isStatic) return;
+
   event.respondWith(
-    fetch(event.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE).then(c => c.put(event.request, clone));
+    fetch(req).then(res => {
+      if (res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE).then(cache => cache.put(req, clone));
+      }
       return res;
-    }).catch(() => caches.match(event.request))
+    }).catch(() => caches.match(req))
   );
 });
 
 self.addEventListener('push', event => {
-  const data = event.data ? event.data.json() : {};
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+
   event.waitUntil(self.registration.showNotification(
     data.title || '听月发来消息 💓',
     {
@@ -41,13 +73,15 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const client of list) {
-        if (client.url.includes('victoryaoife.github.io') && 'focus' in client)
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
           return client.focus();
+        }
       }
-      if (clients.openWindow)
+      if (clients.openWindow) {
         return clients.openWindow(event.notification.data.url || './');
+      }
     })
   );
 });
