@@ -212,6 +212,19 @@ html, body {
   outline:1px solid var(--accent);
   border-radius:var(--radius);
 }
+.edit-textarea {
+  width:100%;
+  min-width:260px;
+  min-height:160px;
+  background:transparent;
+  border:none;
+  color:inherit;
+  font:inherit;
+  line-height:1.5;
+  resize:vertical;
+  outline:none;
+  white-space:pre-wrap;
+}
 .msg.segment-bubble { margin-bottom:6px; }
 .msg.segment-bubble + .msg.segment-bubble { margin-top:0; }
 .msg.pending .msg-bubble {
@@ -2106,10 +2119,21 @@ function startEdit(index) {
     ? messages[index].versions[messages[index].activeVersion || 0]
     : messages[index];
 
-  bubble.textContent = activeV.content;
-  bubble.contentEditable = true;
-  bubble.focus();
-  actions.style.display = 'none';
+  const textarea = document.createElement('textarea');
+  textarea.className = 'edit-textarea';
+  textarea.value = activeV.content || '';
+
+  bubble.innerHTML = '';
+  bubble.appendChild(textarea);
+  textarea.focus();
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.min(textarea.scrollHeight, 360) + 'px';
+  textarea.oninput = () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 360) + 'px';
+  };
+
+  if (actions) actions.style.display = 'none';
 
   const editActs = document.createElement('div');
   editActs.className = 'edit-actions';
@@ -2118,7 +2142,7 @@ function startEdit(index) {
   saveBtn.className = 'edit-save';
   saveBtn.textContent = '保存';
   saveBtn.onclick = () => {
-    const newText = bubble.textContent;
+    const newText = textarea.value;
     if (messages[index].versions) {
       messages[index].versions[messages[index].activeVersion].content = newText;
     } else {
@@ -2140,6 +2164,8 @@ function startEdit(index) {
   editActs.appendChild(cancelBtn);
   msgEl.appendChild(editActs);
 }
+
+
 
 function deleteMessage(index) {
   if (!confirm('删除这条消息？')) return;
