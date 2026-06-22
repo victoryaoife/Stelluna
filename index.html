@@ -2348,6 +2348,33 @@ function buildApiMessages() {
   });
 }
 
+function getBeijingDateFromTimestamp(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+}
+
+function buildFullMessagesJson() {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+  return messages
+    .filter(m => {
+      const v = m.versions ? m.versions[m.activeVersion || 0] : m;
+      const ts = v.timestamp || m.timestamp || '';
+      return getBeijingDateFromTimestamp(ts) === today;
+    })
+    .map(m => {
+      const v = m.versions ? m.versions[m.activeVersion || 0] : m;
+      return {
+        role: m.role,
+        content: v.content || '',
+        timestamp: v.timestamp || m.timestamp || '',
+        source: m.source || 'normal',
+      };
+    });
+}
+
+
 // ====== 发送消息 ======
 async function sendMessage() {
   const input = document.getElementById('input');
@@ -2483,6 +2510,7 @@ async function generateResponse(aiIndex, images = null) {
   const requestBody = {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     messages: apiMessages,
+    full_messages_json: buildFullMessagesJson(),
     system_prompt: getSetting('sysPrompt', ''),
     config,
     is_first_after_archive: isFirstAfterArchive,
@@ -2490,7 +2518,6 @@ async function generateResponse(aiIndex, images = null) {
   };
 
   
-
   if (images) requestBody.images = images;
   if (getSetting('sendLocation') === 'true' && currentLocation) {
     requestBody.location = currentLocation;
