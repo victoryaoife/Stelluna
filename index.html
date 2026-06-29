@@ -906,30 +906,39 @@ html, body {
     <div class="pool-add">
       <select id="pool-main-select"></select>
       <button class="small-btn" onclick="addToPool('main')">添加</button>
+      <input id="pool-main-manual" placeholder="手动输入模型名" style="flex:1;font-size:13px;">
+      <button class="small-btn" onclick="addToPoolManual('main')">+手动</button>
     </div>
+
   </div>
   <div class="setting-group">
     <label>副模型池 (VICE)</label>
     <div id="pool-vice"></div>
     <div class="pool-add">
-      <select id="pool-vice-select"></select>
-      <button class="small-btn" onclick="addToPool('vice')">添加</button>
+      <select id="pool-main-select"></select>
+      <button class="small-btn" onclick="addToPool('main')">添加</button>
+      <input id="pool-main-manual" placeholder="手动输入模型名" style="flex:1;font-size:13px;">
+      <button class="small-btn" onclick="addToPoolManual('main')">+手动</button>
     </div>
   </div>
   <div class="setting-group">
     <label>主动消息模型池</label>
     <div id="pool-proactive"></div>
     <div class="pool-add">
-      <select id="pool-proactive-select"></select>
-      <button class="small-btn" onclick="addToPool('proactive')">添加</button>
+      <select id="pool-main-select"></select>
+      <button class="small-btn" onclick="addToPool('main')">添加</button>
+      <input id="pool-main-manual" placeholder="手动输入模型名" style="flex:1;font-size:13px;">
+      <button class="small-btn" onclick="addToPoolManual('main')">+手动</button>
     </div>
   </div>
   <div class="setting-group">
     <label>视觉模型池</label>
     <div id="pool-vision"></div>
     <div class="pool-add">
-      <select id="pool-vision-select"></select>
-      <button class="small-btn" onclick="addToPool('vision')">添加</button>
+      <select id="pool-main-select"></select>
+      <button class="small-btn" onclick="addToPool('main')">添加</button>
+      <input id="pool-main-manual" placeholder="手动输入模型名" style="flex:1;font-size:13px;">
+      <button class="small-btn" onclick="addToPoolManual('main')">+手动</button>
     </div>
   </div>
 
@@ -1723,6 +1732,25 @@ function addToPool(poolName) {
   pool.push({ pname, model });
   modelPools[poolName] = pool;
   setSetting('modelPools', JSON.stringify(modelPools));
+  renderPool(poolName);
+}
+
+function addToPoolManual(poolName) {
+  const input = document.getElementById('pool-' + poolName + '-manual');
+  const model = input.value.trim();
+  if (!model) return;
+  const provider = getActiveProvider();
+  if (!provider) { alert('请先添加供应商'); return; }
+  const pool = modelPools[poolName] || [];
+  if (pool.length >= 30) { alert('最多30个'); return; }
+  if (pool.some(p => p.pname === provider.name && p.model === model)) {
+    alert('该模型已在池中');
+    return;
+  }
+  pool.push({ pname: provider.name, model });
+  modelPools[poolName] = pool;
+  setSetting('modelPools', JSON.stringify(modelPools));
+  input.value = '';
   renderPool(poolName);
 }
 
