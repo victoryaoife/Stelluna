@@ -1885,7 +1885,7 @@ function escapeHtml(text) {
 function renderMarkdown(text) {
   if (!text) return '';
   try {
-    text = text.replace(/⟦\d+[天分钟小时]+前[^⟧]*⟧\s*/g, '');
+    text = text.replace(/⟦[^⟧]*⟧\s*/g, '');
     // 防止消息中的 HTML 源码被渲染为真实 DOM
     const _h = [];
     text = text.replace(/```[\s\S]*?```|`[^`\n]+`/g, m => { _h.push(m); return '%%CH' + (_h.length-1) + '%%'; });
