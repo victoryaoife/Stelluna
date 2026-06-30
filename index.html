@@ -2586,6 +2586,25 @@ async function generateResponse(aiIndex, images = null) {
         fullContent = choice.message?.content || '';
         thinkingContent = choice.message?.reasoning_content || '';
       }
+      if (data._stelluna_meta) {
+        if (data._stelluna_meta.model_info) {
+          const mi = data._stelluna_meta.model_info;
+          showStatus(`🪞 ${mi.provider} / ${mi.model}`, 5000);
+        }
+        if (data._stelluna_meta.image_descriptions) {
+          const userMsgIndex = aiIndex - 1;
+          if (userMsgIndex >= 0 && messages[userMsgIndex].role === 'user') {
+            const userV = messages[userMsgIndex].versions[messages[userMsgIndex].activeVersion || 0];
+            for (const [placeholder, desc] of Object.entries(data._stelluna_meta.image_descriptions)) {
+              userV.content = userV.content.replace(placeholder, `\n[图片：${desc}]\n`);
+            }
+            saveMessages();
+          }
+        }
+        if (data._stelluna_meta.server_timestamp) {
+          messages[aiIndex].versions[messages[aiIndex].activeVersion].timestamp = data._stelluna_meta.server_timestamp;
+        }
+      }
       aiBubble.innerHTML = renderMarkdown(fullContent);
       scrollToBottom();
     } else {
@@ -2612,6 +2631,10 @@ async function generateResponse(aiIndex, images = null) {
             // 处理图片描述回写
             if (json.type === 'model_info') {
               showStatus(`🪞 ${json.provider} / ${json.model}`, 5000);
+              continue;
+            }
+            if (json.type === 'server_time') {
+              messages[aiIndex].versions[messages[aiIndex].activeVersion].timestamp = json.timestamp;
               continue;
             }
             if (json.type === 'image_desc' && json.descriptions) {
