@@ -2604,6 +2604,9 @@ async function generateResponse(aiIndex, images = null) {
         if (data._stelluna_meta.server_timestamp) {
           messages[aiIndex].versions[messages[aiIndex].activeVersion].timestamp = data._stelluna_meta.server_timestamp;
         }
+        if (data._stelluna_meta.daily_event) {
+          showStatus(`🏠 【家里有情况啦】${data._stelluna_meta.daily_event.text}`, 8000);
+        }
       }
       aiBubble.innerHTML = renderMarkdown(fullContent);
       scrollToBottom();
@@ -2635,6 +2638,10 @@ async function generateResponse(aiIndex, images = null) {
             }
             if (json.type === 'server_time') {
               messages[aiIndex].versions[messages[aiIndex].activeVersion].timestamp = json.timestamp;
+              continue;
+            }
+            if (json.type === 'daily_event') {
+              showStatus(`🏠 【家里有情况啦】${json.event.text}`, 8000);
               continue;
             }
             if (json.type === 'image_desc' && json.descriptions) {
