@@ -2735,7 +2735,9 @@ async function generateResponse(aiIndex, images = null) {
     const extracted = extractThinking(fullContent);
     finalVersion.content = extracted.display;
     finalVersion.thinking = thinkingContent || extracted.thinking;
-    finalVersion.timestamp = new Date().toISOString();
+    if (!finalVersion.timestamp || finalVersion.timestamp === '') {
+      finalVersion.timestamp = new Date().toISOString();
+    }
     saveMessages();
     renderAll();
 
