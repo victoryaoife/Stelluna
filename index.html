@@ -2734,8 +2734,13 @@ async function generateResponse(aiIndex, images = null) {
     if (existingStop) existingStop.remove();
     // 检测并清理状态/缓存标记
     fullContent = await detectStatusTags(fullContent);
+
+    // 日记标记只处理当前刚生成完的这一条回复，避免历史上下文里的日记重复触发
+    fullContent = await confirmDiaryTags(fullContent, aiIndex);
+
     // 检测红包
     checkForRedPacket(fullContent);
+
 
     // 把清理后的内容存入当前版本
     const finalVersion = messages[aiIndex].versions[messages[aiIndex].activeVersion];
@@ -2947,7 +2952,7 @@ async function checkProactive() {
   }
 }
 // ====== 归档 ======
-async function archiveToday() {
+async function archiveToday(options = {}) {
   if (messages.length === 0) { alert('没有可归档的消息'); return; }
 
   const gateway = getSetting('gateway');
@@ -2956,20 +2961,24 @@ async function archiveToday() {
   // 1. 输入日期
   const now = new Date(Date.now() + 8 * 3600000);
   const defaultDate = now.toISOString().slice(0, 10);
-  const date = prompt('请输入归档日期（YYYY-MM-DD）：', defaultDate);
+  const date = options.date || prompt('请输入归档日期（YYYY-MM-DD）：', defaultDate);
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     showStatus('⚠ 日期格式不正确，归档取消');
     return;
   }
 
+
   // 2. 输入保留条数
-  const keepInput = prompt(`当前共 ${messages.length} 条消息，保留最近多少条？（默认40）`, '40');
-  const keepN = parseInt(keepInput) || 40;
+  const keepInput = options.keepN
+    ? String(options.keepN)
+    : prompt(`当前共 ${messages.length} 条消息，保留最近多少条？（默认10）`, '10');
+  const keepN = parseInt(keepInput) || 10;
+
 
 
   // 3. 询问是否写日记
-  let diary = null;
-  const wantDiary = confirm('是否同时写入日记？（取消=仅归档聊天记录）');
+  let diary = options.diary || null;
+  const wantDiary = options.skipDiaryPrompt ? false : confirm('是否同时写入日记？（取消=仅归档聊天记录）');
   if (wantDiary) {
     const content = prompt('请输入今日日记内容：');
     if (content) {
@@ -2979,7 +2988,9 @@ async function archiveToday() {
   }
 
   // 4. 最终确认
-  const finalConfirm = confirm(`确定归档 ${date}？\n保留 ${keepN} 条消息\n${wantDiary ? '✓ 写入日记' : '✗ 不写日记'}`);
+  const finalConfirm = options.skipFinalConfirm
+    ? true
+    : confirm(`确定归档 ${date}？\n保留 ${keepN} 条消息\n${wantDiary ? '✓ 写入日记' : '✗ 不写日记'}`);
   if (!finalConfirm) {
     showStatus('归档已取消');
     return;
@@ -3033,16 +3044,19 @@ async function archiveToday() {
 }
 
 // ====== 导出 TXT ======
-async function exportTxt() {
+async function exportTxt(dateOverride = null) {
   if (messages.length === 0) { alert('没有可导出的消息'); return; }
   if (isExporting) { showStatus('正在导出中，请稍候...'); return; }
 
   const now = new Date(Date.now() + 8 * 3600000);
   const defaultDate = now.toISOString().slice(0, 10);
-  const date = prompt('导出哪天的消息？（YYYY-MM-DD，留空导出全部）：', defaultDate);
+  const date = dateOverride !== null
+    ? dateOverride
+    : prompt('导出哪天的消息？（YYYY-MM-DD，留空导出全部）：', defaultDate);
 
   // 用户点了取消
   if (date === null) return;
+
 
   isExporting = true;
 
@@ -3826,7 +3840,260 @@ async function deleteCalendarEvent(id) {
   }
 }
 
-// ====== 状态/缓存/日历标记检测 ======
+
+  // ====== 日记确认流程 ======
+function getDiaryMarkerParts() {
+  return {
+    open: '<' + '<日记>' + '>',
+    close: '<' + '<' + '/日记>' + '>',
+  };
+}
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\__CODEBLOCK_6__');
+}
+
+function getDiaryTagRegex() {
+  const parts = getDiaryMarkerParts();
+  return new RegExp(escapeRegExp(parts.open) + '([\\s\\S]*?)' + escapeRegExp(parts.close), 'g');
+}
+
+function getBeijingTodayStr() {
+  return new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+}
+
+function parseDiaryTagValue(val) {
+  const parts = val.split('|');
+  let diaryDate, periodStatus, diaryContent;
+
+  if (parts.length >= 3) {
+    diaryDate = parts[0].trim();
+    periodStatus = parts[1].trim() || null;
+    diaryContent = parts.slice(2).join('|').trim();
+  } else if (parts.length === 2) {
+    diaryDate = parts[0].trim();
+    periodStatus = null;
+    diaryContent = parts[1].trim();
+  } else {
+    const dateMatch = val.match(/(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})/);
+    diaryDate = dateMatch
+      ? dateMatch[1] + '-' + dateMatch[2].padStart(2, '0') + '-' + dateMatch[3].padStart(2, '0')
+      : getBeijingTodayStr();
+    periodStatus = null;
+    diaryContent = val.trim();
+  }
+
+  return {
+    date: diaryDate || getBeijingTodayStr(),
+    period_status: periodStatus,
+    content: diaryContent || '',
+  };
+}
+
+function buildDiaryTag(diary) {
+  const parts = getDiaryMarkerParts();
+  const period = diary.period_status ? diary.period_status + '|' : '';
+  return parts.open + diary.date + '|' + period + diary.content + parts.close;
+}
+
+async function confirmDiaryTags(content, aiIndex) {
+  const gateway = getSetting('gateway');
+  if (!gateway) return content;
+
+  const matches = Array.from(content.matchAll(getDiaryTagRegex()));
+  if (matches.length === 0) return content;
+
+  let updatedContent = content;
+
+  for (const match of matches) {
+    const originalTag = match[0];
+    const parsedDiary = parseDiaryTagValue(match[1].trim());
+    const result = await showDiaryConfirmDialog(parsedDiary);
+
+    if (!result || result.action === 'cancel') {
+      showStatus('日记写入已取消');
+      continue;
+    }
+
+    const saved = await saveReviewedDiary(result.action, result.diary);
+    if (!saved) continue;
+
+    updatedContent = updatedContent.replace(originalTag, buildDiaryTag(result.diary));
+
+    const msg = messages[aiIndex];
+    if (msg && msg.versions) {
+      msg.versions[msg.activeVersion || 0].content = updatedContent;
+      saveMessages();
+      renderAll();
+    }
+
+    await runAfterDiarySavedFlow(result.diary.date);
+  }
+
+  return updatedContent;
+}
+
+function showDiaryConfirmDialog(diary) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const editor = document.createElement('div');
+    editor.style.cssText = 'background:var(--surface);border-radius:14px;padding:20px;width:100%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;gap:12px;';
+
+    const title = document.createElement('h3');
+    title.textContent = '📅 确认今日日记';
+    title.style.cssText = 'font-size:16px;color:var(--text);';
+
+    const dateRow = document.createElement('div');
+    dateRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    const dateLabel = document.createElement('label');
+    dateLabel.textContent = '日期：';
+    dateLabel.style.cssText = 'font-size:13px;color:var(--text2);white-space:nowrap;';
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.value = diary.date || getBeijingTodayStr();
+    dateInput.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;outline:none;';
+    dateRow.appendChild(dateLabel);
+    dateRow.appendChild(dateInput);
+
+    const periodRow = document.createElement('div');
+    periodRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    const periodLabel = document.createElement('label');
+    periodLabel.textContent = '经期状态：';
+    periodLabel.style.cssText = 'font-size:13px;color:var(--text2);white-space:nowrap;';
+    const periodInput = document.createElement('input');
+    periodInput.value = diary.period_status || '';
+    periodInput.placeholder = '留空则无';
+    periodInput.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;outline:none;';
+    periodRow.appendChild(periodLabel);
+    periodRow.appendChild(periodInput);
+
+    const textarea = document.createElement('textarea');
+    textarea.value = diary.content || '';
+    textarea.style.cssText = 'flex:1;min-height:360px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:10px;font-size:14px;line-height:1.6;resize:vertical;outline:none;font-family:inherit;';
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;';
+
+    const finish = action => {
+      if (action !== 'cancel') {
+        const date = dateInput.value;
+        const content = textarea.value.trim();
+        if (!date || !content) {
+          alert('日期和日记内容不能为空');
+          return;
+        }
+        overlay.remove();
+        resolve({
+          action,
+          diary: {
+            date,
+            period_status: periodInput.value.trim() || null,
+            content,
+          },
+        });
+        return;
+      }
+      overlay.remove();
+      resolve({ action: 'cancel' });
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.className = 'small-btn';
+    cancelBtn.onclick = () => finish('cancel');
+
+    const overwriteBtn = document.createElement('button');
+    overwriteBtn.textContent = '覆盖';
+    overwriteBtn.className = 'small-btn danger';
+    overwriteBtn.onclick = () => finish('overwrite');
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = '确认';
+    confirmBtn.style.cssText = 'background:var(--accent);color:white;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:14px;';
+    confirmBtn.onclick = () => finish('confirm');
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(overwriteBtn);
+    btnRow.appendChild(confirmBtn);
+
+    editor.appendChild(title);
+    editor.appendChild(dateRow);
+    editor.appendChild(periodRow);
+    editor.appendChild(textarea);
+    editor.appendChild(btnRow);
+    overlay.appendChild(editor);
+    document.body.appendChild(overlay);
+  });
+}
+
+async function saveReviewedDiary(action, diary) {
+  const gateway = getSetting('gateway');
+  if (!gateway) return false;
+
+  const payload = {
+    date: diary.date,
+    content: diary.content,
+    period_status: diary.period_status,
+  };
+
+  try {
+    if (action === 'overwrite') {
+      const patchRes = await fetch(gateway + '/api/memory/diaries/' + diary.date, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: diary.content,
+          period_status: diary.period_status,
+        }),
+      });
+      const patchResult = await patchRes.json().catch(() => ({}));
+      if (patchRes.ok && patchResult.success) {
+        showStatus('日记已覆盖 ✓');
+        return true;
+      }
+    }
+
+    const res = await fetch(gateway + '/api/diary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (res.ok && result.success !== false) {
+      showStatus(action === 'overwrite' ? '日记已写入 ✓' : '日记已确认写入 ✓');
+      return true;
+    }
+
+    showStatus('⚠ 日记写入失败: ' + (result.error || '未知错误'), 5000);
+    return false;
+  } catch (e) {
+    showStatus('⚠ 日记写入失败: ' + e.message, 5000);
+    return false;
+  }
+}
+
+async function runAfterDiarySavedFlow(date) {
+  if (confirm('日记已写入。是否导出当天聊天记录 TXT？')) {
+    await exportTxt(date);
+  }
+
+  if (confirm('是否归档当天聊天记录？')) {
+    const keepInput = prompt(`当前共 ${messages.length} 条消息，保留最近多少条？（默认40）`, '40');
+    if (keepInput === null) return;
+    const keepN = parseInt(keepInput) || 40;
+    await archiveToday({
+      date,
+      keepN,
+      skipDiaryPrompt: true,
+      skipFinalConfirm: true,
+    });
+  }
+}
+
+  
+  // ====== 状态/缓存/日历标记检测 ======
 async function detectStatusTags(content) {
   const gateway = getSetting('gateway');
   if (!gateway) return content;
@@ -3952,48 +4219,7 @@ async function detectStatusTags(content) {
     }
   }
 
-  // 处理日记标记
-  const diaryRegex = /<<日记>>([\s\S]*?)<<\/日记>>/g;
-  while ((m = diaryRegex.exec(cleaned)) !== null) {
-    const val = m[1].trim();
-    if (val) {
-      const parts = val.split('|');
-      let diaryDate, periodStatus, diaryContent;
-      if (parts.length >= 3) {
-        diaryDate = parts[0].trim();
-        periodStatus = parts[1].trim() || null;
-        diaryContent = parts.slice(2).join('|').trim();
-      } else if (parts.length === 2) {
-        diaryDate = parts[0].trim();
-        periodStatus = null;
-        diaryContent = parts[1].trim();
-      } else {
-        const dateMatch = val.match(/(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})/);
-        if (dateMatch) {
-          diaryDate = dateMatch[1] + '-' + dateMatch[2].padStart(2,'0') + '-' + dateMatch[3].padStart(2,'0');
-        } else {
-          const now = new Date(Date.now() + 8 * 3600000);
-          diaryDate = now.toISOString().slice(0, 10);
-        }
-        periodStatus = null;
-        diaryContent = val;
-      }
-      if (diaryDate && diaryContent) {
-        try {
-          await fetch(gateway + '/api/diary', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: diaryDate, content: diaryContent, period_status: periodStatus }),
-          });
-          showStatus('日记已写入 ✓');
-        } catch (e) {
-          console.error('写入日记失败:', e);
-          showStatus('⚠ 日记写入失败: ' + e.message, 3000);
-        }
-      }
-    }
-  }
-
+  // 日记标记不在这里自动写库，改由 confirmDiaryTags 在当前回复生成完成后弹窗确认。
 
   // 还原代码框
   codeBlocks.forEach((block, i) => {
