@@ -1175,6 +1175,7 @@ let proactiveTimer = null;
 let isFirstAfterArchive = true;
 let currentLocation = null;
 let isExporting = false;
+let isLoadingXhs = false;
 const isApp = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
 
 // ====== Tab切换 ======
@@ -2225,6 +2226,77 @@ function removeImage() {
   document.getElementById('img-preview').style.display = 'none';
   document.getElementById('img-preview-src').src = '';
 }
+
+// ====== 小红书链接处理 ======
+
+function extractXhsUrl(text) {
+  const match = text.match(/https?:\/\/xhslink\.com\/[^\s]+/);
+  if (match) return match[0];
+  const match2 = text.match(/https?:\/\/(www\.)?xiaohongshu\.com\/(explore|discovery\/item)\/[^\s]+/);
+  if (match2) return match2[0];
+  return null;
+}
+
+async function processXhsLink(xhsUrl, originalText) {
+  const gateway = getSetting('gateway');
+  if (!gateway) return null;
+
+  isLoadingXhs = true;
+  showStatus('📕 正在读取小红书笔记…', 30000);
+
+  try {
+    const config = buildConfig();
+    const res = await fetch(gateway + '/api/xhs-card', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: xhsUrl, cfg: config }),
+    });
+    const data = await res.json();
+
+    if (!data.ok || !data.note) {
+      showStatus('⚠ 小红书读取失败: ' + (data.error || '未知错误'), 5000);
+      return null;
+    }
+
+    const note = data.note;
+
+    // 拼结构化文本
+    let structured = `📕 小红书笔记\n`;
+    structured += `作者：${note.author}\n`;
+    structured += `标题：${note.title}\n`;
+    if (note.desc) structured += `正文：${note.desc}\n`;
+    if (note.likedCount || note.commentCount || note.collectedCount) {
+      structured += `互动：${note.likedCount}赞 ${note.commentCount}评论 ${note.collectedCount}收藏\n`;
+    }
+
+    // 图片描述
+    if (note.imageDescriptions && note.imageDescriptions.length > 0) {
+      structured += `\n配图：\n`;
+      for (const img of note.imageDescriptions) {
+        structured += `  第${img.index}张：${img.description}\n`;
+      }
+    }
+
+    // 评论
+    if (note.comments && note.comments.length > 0) {
+      structured += `\n热门评论：\n`;
+      for (const c of note.comments) {
+        structured += `  ${c.user}${c.ipLocation ? '(' + c.ipLocation + ')' : ''}：${c.content}\n`;
+      }
+    }
+
+    structured += `\n原链接：${note.url || xhsUrl}`;
+
+    showStatus('📕 小红书笔记读取完成 ✓', 3000);
+    return structured;
+
+  } catch (e) {
+    showStatus('⚠ 小红书读取失败: ' + e.message, 5000);
+    return null;
+  } finally {
+    isLoadingXhs = false;
+  }
+}
   
 // ====== 文件处理 ======
 function handleFileSelect(event) {
@@ -2405,6 +2477,10 @@ function buildFullMessagesJson() {
 
 // ====== 发送消息 ======
 async function sendMessage() {
+  if (isLoadingXhs) {
+    showStatus('📕 小红书内容还在加载中，稍等一下就好～', 3000);
+    return;
+  }
   const input = document.getElementById('input');
   const currentText = input.value.trim();
   if (currentText) pendingMessages.push(currentText);
@@ -2424,7 +2500,20 @@ async function sendMessage() {
   if (!config.model && (!config.main_pool || config.main_pool.length === 0)) { alert('请指定模型或配置主模型轮询池'); return; }
 
   // 构建用户消息内容
+  // 小红书链接处理
   let userContent = text;
+  const xhsUrl = extractXhsUrl(userContent);
+  if (xhsUrl) {
+    const xhsContent = await processXhsLink(xhsUrl, userContent);
+    if (xhsContent) {
+      // 把链接及其后面的小红书分享文案替换成结构化内容
+      const sharePattern = /https?:\/\/xhslink\.com\/[^\s]+[\s\S]*?(?:打开【小红书】[^\n]*)?/;
+      const sharePattern2 = /https?:\/\/(www\.)?xiaohongshu\.com\/(explore|discovery\/item)\/[^\s]+[\s\S]*?(?:打开【小红书】[^\n]*)?/;
+      userContent = userContent.replace(sharePattern, '').replace(sharePattern2, '').trim();
+      userContent = userContent ? userContent + '\n\n' + xhsContent : xhsContent;
+    }
+  }
+
   let userImages = [];
   let imagePayload = null;
 
@@ -2507,6 +2596,11 @@ async function generateResponse(aiIndex, images = null) {
   isGenerating = true;
   wasHiddenDuringGeneration = false;
   document.getElementById('send-btn').disabled = true;
+
+  // 保存当前回复对象的引用。归档会裁剪 messages 并改变数组下标，
+  // 但被保留的消息对象本身不会改变。
+  const targetMessage = messages[aiIndex];
+  const targetVersionIndex = targetMessage?.activeVersion || 0;
 
   const container = document.getElementById('messages');
   const aiMsgEl = container.querySelector('.msg[data-index="' + aiIndex + '"]');
@@ -2742,13 +2836,16 @@ async function generateResponse(aiIndex, images = null) {
     checkForRedPacket(fullContent);
 
 
-    // 把清理后的内容存入当前版本
-    const finalVersion = messages[aiIndex].versions[messages[aiIndex].activeVersion];
-    const extracted = extractThinking(fullContent);
-    finalVersion.content = extracted.display;
-    finalVersion.thinking = thinkingContent || extracted.thinking;
-    if (!finalVersion.timestamp || finalVersion.timestamp === '') {
-      finalVersion.timestamp = new Date().toISOString();
+    // 把清理后的内容存入当前版本。
+    // 使用生成开始时保存的对象引用，避免归档裁剪 messages 后 aiIndex 失效。
+    const finalVersion = targetMessage?.versions?.[targetVersionIndex];
+    if (finalVersion) {
+      const extracted = extractThinking(fullContent);
+      finalVersion.content = extracted.display;
+      finalVersion.thinking = thinkingContent || extracted.thinking;
+      if (!finalVersion.timestamp) {
+        finalVersion.timestamp = new Date().toISOString();
+      }
     }
     saveMessages();
     renderAll();
