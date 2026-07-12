@@ -1481,6 +1481,44 @@ function saveSettings() {
 
 }
 
+const activeProgressTasks = new Map();
+let progressHideTimer = null;
+
+function renderProgressTasks() {
+  const bar = document.getElementById('status-bar');
+  if (activeProgressTasks.size === 0) {
+    bar.classList.remove('show');
+    return;
+  }
+
+  bar.textContent = [...activeProgressTasks.values()].join('  ·  ');
+  bar.classList.add('show');
+}
+
+function startProgressTask(id, message) {
+  if (progressHideTimer) {
+    clearTimeout(progressHideTimer);
+    progressHideTimer = null;
+  }
+  activeProgressTasks.set(id, message);
+  renderProgressTasks();
+}
+
+function finishProgressTask(id, message) {
+  activeProgressTasks.set(id, message);
+  renderProgressTasks();
+
+  setTimeout(() => {
+    activeProgressTasks.delete(id);
+    renderProgressTasks();
+  }, 3000);
+}
+
+function clearProgressTasks() {
+  activeProgressTasks.clear();
+  renderProgressTasks();
+}
+
 // ====== 状态栏 ======
 function showStatus(msg, duration = 3000) {
   const bar = document.getElementById('status-bar');
@@ -2474,6 +2512,27 @@ function buildFullMessagesJson() {
     });
 }
 
+function startExpectedProgressTasks(text, hasImage) {
+  const urls = text.match(/https?:\/\/[^\s<>"{}|\\^`\[\]]+/g) || [];
+  const hasNormalUrl = urls.some(url =>
+    !/xhslink\.com|xiaohongshu\.com/.test(url)
+  );
+
+  if (hasNormalUrl) {
+    startProgressTask('url', '🔗 正在读取网页…');
+  }
+
+  if (hasImage) {
+    startProgressTask('image', '🖼️ 正在识别图片…');
+  }
+
+  const codePattern =
+    /index代码|worker代码|bridge代码|桥接脚本|manifest代码|sw\.js|service worker|schema|表结构|AndroidManifest|build\.gradle|MainActivity|mainactivity|app主入口|KeepAliveService|keepaliveservice|后台保活|沉默时间|主动消息|UsageStatsPlugin|usagestatsplugin|屏幕使用时间|临时代码文件/;
+
+  if (codePattern.test(text)) {
+    startProgressTask('code', '📄 正在读取相关代码…');
+  }
+}
 
 // ====== 发送消息 ======
 async function sendMessage() {
@@ -2516,8 +2575,12 @@ async function sendMessage() {
 
   let userImages = [];
   let imagePayload = null;
+  const hasPendingImage = !!pendingImage;
+
+  startExpectedProgressTasks(userContent, hasPendingImage);
 
   if (pendingImage) {
+
     userContent += (userContent ? '\n' : '') + pendingImage.placeholder;
     userImages = [{ url: pendingImage.url }];
     imagePayload = [{ url: pendingImage.url, placeholder: pendingImage.placeholder }];
@@ -2681,6 +2744,11 @@ async function generateResponse(aiIndex, images = null) {
         thinkingContent = choice.message?.reasoning_content || '';
       }
       if (data._stelluna_meta) {
+        if (Array.isArray(data._stelluna_meta.enhancement_progress)) {
+          for (const progress of data._stelluna_meta.enhancement_progress) {
+            finishProgressTask(progress.id, progress.message);
+          }
+        }
         if (data._stelluna_meta.model_info) {
           const mi = data._stelluna_meta.model_info;
           showStatus(`🪞 ${mi.provider} / ${mi.model}`, 5000);
@@ -2725,6 +2793,10 @@ async function generateResponse(aiIndex, images = null) {
 
           try {
             const json = JSON.parse(dataStr);
+            if (json.type === 'progress_result') {
+              finishProgressTask(json.id, json.message);
+              continue;
+            }
             // 处理图片描述回写
             if (json.type === 'model_info') {
               showStatus(`🪞 ${json.provider} / ${json.model}`, 5000);
@@ -2851,6 +2923,7 @@ async function generateResponse(aiIndex, images = null) {
     renderAll();
 
    } catch (err) {
+       clearProgressTasks();
        showStatus('⚠ 生成失败: ' + err.message, 5000);
        // 不删除消息，显示重试按钮
        const retryBtn = document.createElement('button');
