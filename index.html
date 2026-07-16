@@ -860,6 +860,11 @@ html, body {
     <input id="s-gateway" placeholder="https://stelluna.xxx.workers.dev">
   </div>
 
+  <div class="setting-group">
+    <label>本地网关密钥（仅本地线路使用）</label>
+    <input id="s-gateway-token" type="password" placeholder="gatewayToken">
+  </div>
+
   <hr class="divider">
 
   <!-- 供应商 -->
@@ -1384,6 +1389,47 @@ function setSetting(key, val) {
   localStorage.setItem(key, val);
 }
 
+const originalFetch = window.fetch.bind(window);
+
+window.fetch = function(input, options = {}) {
+  const gateway = getSetting('gateway', '').trim();
+  const token = getSetting('localGatewayToken', '').trim();
+  const requestUrl = typeof input === 'string' ? input : input.url;
+  let shouldAttachToken = false;
+
+  try {
+    const gatewayUrl = new URL(gateway);
+    const targetUrl = new URL(requestUrl, window.location.href);
+    const hostname = gatewayUrl.hostname.toLowerCase();
+
+    const isLocalGateway =
+      hostname.endsWith('.ts.net') ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('100.');
+
+    shouldAttachToken =
+      Boolean(token) &&
+      isLocalGateway &&
+      targetUrl.origin === gatewayUrl.origin;
+  } catch (error) {}
+
+  if (!shouldAttachToken) {
+    return originalFetch(input, options);
+  }
+
+  const headers = new Headers(
+    options.headers || (input instanceof Request ? input.headers : undefined)
+  );
+  headers.set('Authorization', 'Bearer ' + token);
+
+  if (input instanceof Request) {
+    return originalFetch(new Request(input, { ...options, headers }));
+  }
+
+  return originalFetch(input, { ...options, headers });
+};
+
 // ====== 面板显示/隐藏 ======
 function showPanel(name) {
   const target = document.getElementById(name + '-panel');
@@ -1406,6 +1452,7 @@ function hidePanel(name) {
 // ====== 设置管理 ======
 function loadSettings() {
   document.getElementById('s-gateway').value = getSetting('gateway', '');
+  document.getElementById('s-gateway-token').value = getSetting('localGatewayToken', '');
   document.getElementById('s-model').value = getSetting('model', '');
   document.getElementById('s-context').value = getSetting('contextN', '20');
   document.getElementById('s-temp').value = getSetting('temperature', '0.7');
@@ -1458,6 +1505,7 @@ function loadSettings() {
 
 function saveSettings() {
   setSetting('gateway', document.getElementById('s-gateway').value.trim());
+  setSetting('localGatewayToken', document.getElementById('s-gateway-token').value.trim());
   setSetting('model', document.getElementById('s-model').value.trim());
   setSetting('contextN', document.getElementById('s-context').value);
   setSetting('temperature', document.getElementById('s-temp').value);
