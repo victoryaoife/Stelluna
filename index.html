@@ -853,19 +853,43 @@ html, body {
     <button onclick="saveSettings()">保存</button>
   </div>
 
-  <!-- 网关 -->
-  <div class="section-title">🌐 网关</div>
-  <div class="setting-group">
-    <label>网关地址</label>
-    <input id="s-gateway" placeholder="https://stelluna.xxx.workers.dev">
-  </div>
+<!-- 网关 -->
+<div class="section-title">🌐 网关</div>
 
-  <div class="setting-group">
-    <label>本地网关密钥（仅本地线路使用）</label>
-    <input id="s-gateway-token" type="password" placeholder="gatewayToken">
-  </div>
+<div class="setting-group">
+  <label>线路模式</label>
+  <select id="s-gateway-mode">
+    <option value="auto">自动：本地优先，失败切云端</option>
+    <option value="local">仅本地网关</option>
+    <option value="cloud">仅云端网关</option>
+  </select>
+</div>
 
-  <hr class="divider">
+<div class="setting-group">
+  <label>云端网关地址</label>
+  <input id="s-cloud-gateway" placeholder="https://stelluna.pages.dev">
+</div>
+
+<div class="setting-group">
+  <label>本地网关地址</label>
+  <input id="s-local-gateway" placeholder="https://assistant-jarvis.tail61fa85.ts.net">
+</div>
+
+<div class="setting-group">
+  <label>本地网关 Token</label>
+  <input id="s-local-gateway-token" type="password" placeholder="Bearer Token">
+</div>
+
+<div id="gateway-route-status" class="supabase-status">
+  当前线路：等待检测
+</div>
+
+<div class="setting-row" style="margin-top:8px;">
+  <button class="small-btn" onclick="testGatewayRoute()">检测当前线路</button>
+</div>
+
+<hr class="divider">
+
 
   <!-- 供应商 -->
   <div class="section-title">🔌 API 供应商</div>
@@ -1389,6 +1413,246 @@ function setSetting(key, val) {
   localStorage.setItem(key, val);
 }
 
+// ====== 云端 / 本地网关切换 ======
+const rawFetch = window.fetch.bind(window);
+const gatewayFallbackCodes = [429, 502, 503, 504];
+
+function normalizeGatewayUrl(url) {
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+function getGatewayRouteConfig() {
+  return {
+    mode: getSetting('gatewayMode', 'auto'),
+    cloud: normalizeGatewayUrl(
+      getSetting('cloudGateway', getSetting('gateway', ''))
+    ),
+    local: normalizeGatewayUrl(
+      getSetting('localGateway', '')
+    ),
+    token: getSetting('localGatewayToken', '').trim(),
+  };
+}
+
+function getGatewayName(base, config) {
+  return base === config.local ? '本地' : '云端';
+}
+
+function updateGatewayRouteStatus(text, success = null) {
+  const el = document.getElementById('gateway-route-status');
+  if (!el) return;
+
+  el.textContent = text;
+  el.classList.remove('status-ok', 'status-err');
+
+  if (success === true) {
+    el.classList.add('status-ok');
+  } else if (success === false) {
+    el.classList.add('status-err');
+  }
+}
+
+function applyGatewayMode() {
+  const config = getGatewayRouteConfig();
+  let activeGateway = '';
+
+  if (config.mode === 'cloud') {
+    activeGateway = config.cloud;
+  } else if (config.mode === 'local') {
+    activeGateway = config.local;
+  } else {
+    activeGateway = config.local || config.cloud;
+  }
+
+  setSetting('gateway', activeGateway);
+
+  const lastRoute = getSetting('lastGatewayRoute', '');
+
+  if (config.mode === 'auto') {
+    updateGatewayRouteStatus(
+      lastRoute
+        ? `自动模式：上次使用${lastRoute}`
+        : '自动模式：本地优先，失败切云端'
+    );
+  } else {
+    updateGatewayRouteStatus(
+      `当前模式：${config.mode === 'local' ? '仅本地' : '仅云端'}`
+    );
+  }
+}
+
+function findGatewayPath(url, config) {
+  const bases = [config.local, config.cloud].filter(Boolean);
+
+  for (const base of bases) {
+    if (url === base) return '';
+    if (url.startsWith(base + '/')) {
+      return url.slice(base.length);
+    }
+  }
+
+  return null;
+}
+
+async function fetchFromGateway(base, path, init, config) {
+  const headers = new Headers((init && init.headers) || {});
+
+  if (base === config.local && config.token) {
+    headers.set('Authorization', 'Bearer ' + config.token);
+  } else {
+    headers.delete('Authorization');
+  }
+
+  return rawFetch(base + path, {
+    ...(init || {}),
+    headers,
+  });
+}
+
+function markGatewayResult(base, config, response, switched = false) {
+  const routeName = getGatewayName(base, config);
+  setSetting('lastGatewayRoute', routeName);
+
+  if (response.ok) {
+    updateGatewayRouteStatus(
+      switched
+        ? `当前线路：${routeName} ✓（已自动切换）`
+        : `当前线路：${routeName} ✓`,
+      true
+    );
+  } else {
+    updateGatewayRouteStatus(
+      `当前线路：${routeName} · HTTP ${response.status}`,
+      false
+    );
+  }
+}
+
+window.fetch = async function(input, init = {}) {
+  if (typeof input !== 'string') {
+    return rawFetch(input, init);
+  }
+
+  const config = getGatewayRouteConfig();
+  const path = findGatewayPath(input, config);
+
+  // 非星月栖网关请求保持原样
+  if (path === null) {
+    return rawFetch(input, init);
+  }
+
+  let primary = '';
+  let fallback = '';
+
+  if (config.mode === 'cloud') {
+    primary = config.cloud;
+  } else if (config.mode === 'local') {
+    primary = config.local;
+  } else {
+    primary = config.local || config.cloud;
+    fallback = primary === config.local ? config.cloud : '';
+  }
+
+  if (!primary) {
+    throw new Error('当前线路未配置网关地址');
+  }
+
+  try {
+    const response = await fetchFromGateway(
+      primary,
+      path,
+      init,
+      config
+    );
+
+    if (
+      config.mode === 'auto' &&
+      fallback &&
+      gatewayFallbackCodes.includes(response.status)
+    ) {
+      const fallbackResponse = await fetchFromGateway(
+        fallback,
+        path,
+        init,
+        config
+      );
+
+      markGatewayResult(
+        fallback,
+        config,
+        fallbackResponse,
+        true
+      );
+
+      return fallbackResponse;
+    }
+
+    markGatewayResult(
+      primary,
+      config,
+      response,
+      false
+    );
+
+    return response;
+
+  } catch (error) {
+    if (config.mode === 'auto' && fallback) {
+      const fallbackResponse = await fetchFromGateway(
+        fallback,
+        path,
+        init,
+        config
+      );
+
+      markGatewayResult(
+        fallback,
+        config,
+        fallbackResponse,
+        true
+      );
+
+      return fallbackResponse;
+    }
+
+    updateGatewayRouteStatus(
+      `当前线路连接失败：${error.message}`,
+      false
+    );
+
+    throw error;
+  }
+};
+
+async function testGatewayRoute() {
+  applyGatewayMode();
+
+  const gateway = getSetting('gateway', '');
+  if (!gateway) {
+    updateGatewayRouteStatus('请先填写网关地址', false);
+    return;
+  }
+
+  updateGatewayRouteStatus('正在检测当前线路…');
+
+  try {
+    const response = await fetch(gateway + '/health');
+
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
+
+    showStatus('网关连接正常 ✓');
+
+  } catch (error) {
+    updateGatewayRouteStatus(
+      '网关检测失败：' + error.message,
+      false
+    );
+  }
+}
+  
+
 const originalFetch = window.fetch.bind(window);
 
 window.fetch = function(input, options = {}) {
@@ -1451,7 +1715,26 @@ function hidePanel(name) {
 
 // ====== 设置管理 ======
 function loadSettings() {
-  document.getElementById('s-gateway').value = getSetting('gateway', '');
+  const legacyGateway = getSetting('gateway', '');
+
+if (!getSetting('cloudGateway', '') && legacyGateway) {
+  setSetting('cloudGateway', legacyGateway);
+}
+
+document.getElementById('s-cloud-gateway').value =
+  getSetting('cloudGateway', legacyGateway);
+
+document.getElementById('s-local-gateway').value =
+  getSetting('localGateway', '');
+
+document.getElementById('s-local-gateway-token').value =
+  getSetting('localGatewayToken', '');
+
+document.getElementById('s-gateway-mode').value =
+  getSetting('gatewayMode', 'auto');
+
+applyGatewayMode();
+
   document.getElementById('s-gateway-token').value = getSetting('localGatewayToken', '');
   document.getElementById('s-model').value = getSetting('model', '');
   document.getElementById('s-context').value = getSetting('contextN', '20');
@@ -1504,7 +1787,32 @@ function loadSettings() {
 }
 
 function saveSettings() {
-  setSetting('gateway', document.getElementById('s-gateway').value.trim());
+  setSetting(
+  'cloudGateway',
+  normalizeGatewayUrl(
+    document.getElementById('s-cloud-gateway').value
+  )
+);
+
+setSetting(
+  'localGateway',
+  normalizeGatewayUrl(
+    document.getElementById('s-local-gateway').value
+  )
+);
+
+setSetting(
+  'localGatewayToken',
+  document.getElementById('s-local-gateway-token').value.trim()
+);
+
+setSetting(
+  'gatewayMode',
+  document.getElementById('s-gateway-mode').value
+);
+
+applyGatewayMode();
+
   setSetting('localGatewayToken', document.getElementById('s-gateway-token').value.trim());
   setSetting('model', document.getElementById('s-model').value.trim());
   setSetting('contextN', document.getElementById('s-context').value);
@@ -1883,10 +2191,30 @@ function toggleProactive() {
 
 function syncProactiveToNative() {
   if (window.NativeBridge) {
-    const enabled = getSetting('proactiveEnabled') === 'true';
-    const pollInterval = parseInt(getSetting('proactivePoll', '20'));
-    const silenceMinutes = parseInt(getSetting('proactiveDelay', '40'));
-    window.NativeBridge.saveProactiveSettings(JSON.stringify({ enabled, pollInterval, silenceMinutes }));
+    const enabled =
+      getSetting('proactiveEnabled') === 'true';
+
+    const pollInterval =
+      parseInt(getSetting('proactivePoll', '20'));
+
+    const silenceMinutes =
+      parseInt(getSetting('proactiveDelay', '40'));
+
+    const localGatewayUrl =
+      getSetting('localGateway', '');
+
+    const localGatewayToken =
+      getSetting('localGatewayToken', '');
+
+    window.NativeBridge.saveProactiveSettings(
+      JSON.stringify({
+        enabled,
+        pollInterval,
+        silenceMinutes,
+        localGatewayUrl,
+        localGatewayToken,
+      })
+    );
   }
 }
 
