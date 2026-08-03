@@ -905,7 +905,21 @@ html, body {
     <div id="provider-tags" class="provider-tags"></div>
   </div>
 
+  <div class="setting-row" style="margin-top:8px;">
+    <button class="small-btn" onclick="restoreRegistryFromGateway()">
+      从统一注册表恢复
+    </button>
+    <button class="small-btn" onclick="saveRegistryToGateway()">
+      保存到统一注册表
+    </button>
+  </div>
+
+  <div id="registry-sync-status" class="supabase-status">
+    统一注册表：等待同步
+  </div>
+
   <hr class="divider">
+
 
   <!-- 模型 -->
   <div class="section-title">🪞 模型</div>
@@ -1200,6 +1214,8 @@ let favoriteModels = [];
 let allModels = [];
 let currentMemoryTab = 'core';
 let modelPools = { main: [], vice: [], proactive: [], vision: [] };
+let modelRegistryCache = null;
+let isRegistrySyncing = false;
 let proactiveTimer = null;
 let isFirstAfterArchive = true;
 let currentLocation = null;
@@ -1411,6 +1427,11 @@ function unlock() {
     syncFromCloud(false);
   }
 
+  // 启动时只读取统一注册表，不自动上传
+  loadModelRegistryFromGateway({
+    silent: true,
+  });
+
   if (isApp) {
     requestLocalNotifPermission();
     requestLocationPermission();
@@ -1520,11 +1541,22 @@ function findGatewayPath(url, config) {
 async function fetchFromGateway(base, path, init, config) {
   const headers = new Headers((init && init.headers) || {});
 
-  if (base === config.local && config.token) {
+  const isRegistryRequest =
+    path === '/api/registry' ||
+    path.startsWith('/api/registry?');
+
+  if (
+    config.token &&
+    (
+      base === config.local ||
+      isRegistryRequest
+    )
+  ) {
     headers.set('Authorization', 'Bearer ' + config.token);
   } else {
     headers.delete('Authorization');
   }
+
 
   return rawFetch(base + path, {
     ...(init || {}),
@@ -1914,6 +1946,820 @@ function showStatus(msg, duration = 3000) {
   localStorage.setItem('activityLogs', JSON.stringify(activityLogs));
 }
 
+// ====== 统一模型注册表 ======
+
+function updateRegistrySyncStatus(text, success = null) {
+  const el = document.getElementById('registry-sync-status');
+  if (!el) return;
+
+  el.textContent = text;
+  el.classList.remove('status-ok', 'status-err');
+
+  if (success === true) {
+    el.classList.add('status-ok');
+  } else if (success === false) {
+    el.classList.add('status-err');
+  }
+}
+
+function unwrapRegistryPayload(data) {
+  if (
+    data &&
+    typeof data === 'object' &&
+    data.registry &&
+    typeof data.registry === 'object'
+  ) {
+    return data.registry;
+  }
+
+  return data;
+}
+
+function getRegistryProviderName(registry, providerRef) {
+  const ref = String(providerRef || '');
+  const registryProviders = Array.isArray(registry?.providers)
+    ? registry.providers
+    : [];
+
+  const matched = registryProviders.find(provider => {
+    const candidates = [
+      provider.name,
+      provider.id,
+      provider.provider,
+    ].map(value => String(value || ''));
+
+    return candidates.includes(ref);
+  });
+
+  return matched?.name || ref;
+}
+
+function getRegistryModelInfo(modelRow, registry) {
+  if (!modelRow || typeof modelRow !== 'object') {
+    return null;
+  }
+
+  const providerRef =
+    modelRow.provider ??
+    modelRow.providerName ??
+    modelRow.pname ??
+    '';
+
+  const providerName =
+    getRegistryProviderName(registry, providerRef);
+
+  const modelName =
+    modelRow.modelName ??
+    modelRow.model ??
+    modelRow.name ??
+    '';
+
+  if (!providerName || !modelName) {
+    return null;
+  }
+
+  return {
+    providerName: String(providerName),
+    modelName: String(modelName),
+  };
+}
+
+function registryPoolRefToLegacy(ref, registry) {
+  const registryModels = Array.isArray(registry?.models)
+    ? registry.models
+    : [];
+
+  // 兼容对象形式的用途池条目
+  if (ref && typeof ref === 'object') {
+    const directProvider =
+      ref.provider ??
+      ref.providerName ??
+      ref.pname ??
+      '';
+
+    const directModel =
+      ref.modelName ??
+      ref.model ??
+      ref.name ??
+      '';
+
+    if (directProvider && directModel) {
+      return {
+        pname: getRegistryProviderName(
+          registry,
+          directProvider
+        ),
+        model: String(directModel),
+      };
+    }
+  }
+
+  const refText = String(
+    typeof ref === 'object'
+      ? (
+          ref?.id ??
+          ref?.ref ??
+          ref?.modelId ??
+          ref?.model_id ??
+          ''
+        )
+      : ref
+  );
+
+  if (!refText) return null;
+
+  // 优先根据注册表中的模型行解析
+  const matchedModel = registryModels.find(modelRow => {
+    const info = getRegistryModelInfo(
+      modelRow,
+      registry
+    );
+
+    if (!info) return false;
+
+    const canonicalRef =
+      `${info.providerName}/${info.modelName}`;
+
+    const candidates = [
+      modelRow.id,
+      modelRow.model_id,
+      modelRow.modelId,
+      modelRow.ref,
+      canonicalRef,
+    ].map(value => String(value || ''));
+
+    return candidates.includes(refText);
+  });
+
+  if (matchedModel) {
+    const info = getRegistryModelInfo(
+      matchedModel,
+      registry
+    );
+
+    if (info) {
+      return {
+        pname: info.providerName,
+        model: info.modelName,
+      };
+    }
+  }
+
+  // 最后兼容“供应商/模型”字符串；
+  // 供应商名可能含特殊字符，按实际供应商名匹配
+  const registryProviders = Array.isArray(registry?.providers)
+    ? registry.providers
+    : [];
+
+  const providerNames = registryProviders
+    .map(provider => String(provider.name || ''))
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  const matchedProviderName = providerNames.find(
+    name => refText.startsWith(name + '/')
+  );
+
+  if (!matchedProviderName) {
+    return null;
+  }
+
+  const modelName = refText.slice(
+    matchedProviderName.length + 1
+  );
+
+  if (!modelName) return null;
+
+  return {
+    pname: matchedProviderName,
+    model: modelName,
+  };
+}
+
+function refreshModelsFromRegistryCache() {
+  if (!modelRegistryCache) return;
+
+  const active = getActiveProvider();
+  if (!active) {
+    allModels = [];
+    return;
+  }
+
+  const registryModels = Array.isArray(
+    modelRegistryCache.models
+  )
+    ? modelRegistryCache.models
+    : [];
+
+  allModels = registryModels
+    .map(modelRow =>
+      getRegistryModelInfo(
+        modelRow,
+        modelRegistryCache
+      )
+    )
+    .filter(info =>
+      info &&
+      info.providerName === active.name
+    )
+    .map(info => info.modelName)
+    .filter(
+      (modelName, index, array) =>
+        array.indexOf(modelName) === index
+    )
+    .sort();
+
+  const modelList = document.getElementById(
+    'model-list'
+  );
+
+  if (modelList) {
+    renderModelList(
+      document.querySelector('.model-search')?.value || ''
+    );
+  }
+}
+
+function applyRegistryToFrontend(registry) {
+  const registryProviders = Array.isArray(
+    registry?.providers
+  )
+    ? registry.providers
+    : [];
+
+  const registryModels = Array.isArray(
+    registry?.models
+  )
+    ? registry.models
+    : [];
+
+  if (
+    registryProviders.length === 0 ||
+    registryModels.length === 0
+  ) {
+    throw new Error(
+      '注册表中没有有效的供应商或模型，已保留当前本地配置'
+    );
+  }
+
+  const previousProviderName =
+    providers[activeProvider]?.name || '';
+
+  const convertedProviders = registryProviders
+    .map(provider => {
+      const name =
+        provider.name ??
+        provider.id ??
+        '';
+
+      const url =
+        provider.baseUrl ??
+        provider.url ??
+        provider.apiUrl ??
+        provider.api_url ??
+        '';
+
+      const key =
+        provider.apiKey ??
+        provider.key ??
+        provider.api_key ??
+        '';
+
+      if (!name || !url) return null;
+
+      return {
+        name: String(name),
+        url: String(url),
+        key: String(key || ''),
+      };
+    })
+    .filter(Boolean);
+
+  if (convertedProviders.length === 0) {
+    throw new Error(
+      '注册表供应商格式无法识别，已保留当前本地配置'
+    );
+  }
+
+  providers = convertedProviders;
+
+  const previousIndex = providers.findIndex(
+    provider =>
+      provider.name === previousProviderName
+  );
+
+  activeProvider =
+    previousIndex >= 0
+      ? previousIndex
+      : 0;
+
+  favoriteModels = registryModels
+    .filter(modelRow =>
+      modelRow.starred === true ||
+      modelRow.favorite === true ||
+      modelRow.favorited === true
+    )
+    .map(modelRow => {
+      const info = getRegistryModelInfo(
+        modelRow,
+        registry
+      );
+
+      if (!info) return null;
+
+      const pid = providers.findIndex(
+        provider =>
+          provider.name === info.providerName
+      );
+
+      if (pid < 0) return null;
+
+      return {
+        pid,
+        pname: info.providerName,
+        model: info.modelName,
+      };
+    })
+    .filter(Boolean);
+
+  const registryPools =
+    registry.pools &&
+    typeof registry.pools === 'object'
+      ? registry.pools
+      : {};
+
+  const convertedPools = {
+    main: [],
+    vice: [],
+    proactive: [],
+    vision: [],
+  };
+
+  for (const poolName of [
+    'main',
+    'vice',
+    'proactive',
+    'vision',
+  ]) {
+    const refs = Array.isArray(
+      registryPools[poolName]
+    )
+      ? registryPools[poolName]
+      : [];
+
+    convertedPools[poolName] = refs
+      .map(ref =>
+        registryPoolRefToLegacy(
+          ref,
+          registry
+        )
+      )
+      .filter(Boolean);
+  }
+
+  modelPools = convertedPools;
+  modelRegistryCache = registry;
+
+  setSetting(
+    'providers',
+    JSON.stringify(providers)
+  );
+
+  setSetting(
+    'activeProvider',
+    String(activeProvider)
+  );
+
+  setSetting(
+    'favoriteModels',
+    JSON.stringify(favoriteModels)
+  );
+
+  setSetting(
+    'modelPools',
+    JSON.stringify(modelPools)
+  );
+
+  setSetting(
+    'modelRegistryCache',
+    JSON.stringify(registry)
+  );
+
+  renderProvidersList();
+  updateProviderTags();
+  renderAllPools();
+  refreshModelsFromRegistryCache();
+}
+
+async function loadModelRegistryFromGateway({
+  silent = false,
+} = {}) {
+  if (isRegistrySyncing) return false;
+
+  const gateway = getSetting('gateway', '');
+  if (!gateway) {
+    if (!silent) {
+      updateRegistrySyncStatus(
+        '统一注册表：尚未配置网关',
+        false
+      );
+    }
+    return false;
+  }
+
+  isRegistrySyncing = true;
+
+  if (!silent) {
+    updateRegistrySyncStatus(
+      '统一注册表：正在读取…'
+    );
+  }
+
+  try {
+    const response = await fetch(
+      gateway + '/api/registry',
+      {
+        headers: {
+          'Accept': 'application/json',
+        },
+      }
+    );
+
+    const rawText = await response.text();
+
+    let data = {};
+    try {
+      data = rawText
+        ? JSON.parse(rawText)
+        : {};
+    } catch {
+      throw new Error(
+        '注册表接口返回的不是有效 JSON'
+      );
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        'HTTP ' + response.status
+      );
+    }
+
+    if (data.success === false) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        '注册表读取失败'
+      );
+    }
+
+    const registry = unwrapRegistryPayload(data);
+
+    applyRegistryToFrontend(registry);
+
+    updateRegistrySyncStatus(
+      `统一注册表：已恢复 ${providers.length} 个供应商，` +
+      `${Array.isArray(registry.models) ? registry.models.length : 0} 个模型`,
+      true
+    );
+
+    if (!silent) {
+      showStatus('统一注册表恢复成功 ✓');
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error(
+      '统一注册表读取失败:',
+      error
+    );
+
+    updateRegistrySyncStatus(
+      '统一注册表读取失败：' + error.message,
+      false
+    );
+
+    if (!silent) {
+      showStatus(
+        '⚠ 注册表恢复失败：' + error.message,
+        8000
+      );
+    }
+
+    return false;
+
+  } finally {
+    isRegistrySyncing = false;
+  }
+}
+
+async function restoreRegistryFromGateway() {
+  await loadModelRegistryFromGateway({
+    silent: false,
+  });
+}
+
+function buildRegistryFromFrontend() {
+  const oldRegistry =
+    modelRegistryCache &&
+    typeof modelRegistryCache === 'object'
+      ? modelRegistryCache
+      : {};
+
+  const oldProviders = Array.isArray(
+    oldRegistry.providers
+  )
+    ? oldRegistry.providers
+    : [];
+
+  const currentProviderNames = new Set(
+    providers.map(provider => provider.name)
+  );
+
+  const registryProviders = providers.map(
+    provider => {
+      const oldProvider = oldProviders.find(
+        item =>
+          item.name === provider.name ||
+          item.id === provider.name
+      );
+
+      return {
+        ...(oldProvider || {}),
+        name: provider.name,
+        baseUrl: provider.url,
+        apiKey: provider.key,
+      };
+    }
+  );
+
+  const modelMap = new Map();
+
+  const ensureModel = (
+    providerName,
+    modelName,
+    originalRow = null
+  ) => {
+    if (
+      !providerName ||
+      !modelName ||
+      !currentProviderNames.has(providerName)
+    ) {
+      return;
+    }
+
+    const mapKey =
+      `${providerName}/${modelName}`;
+
+    if (!modelMap.has(mapKey)) {
+      modelMap.set(mapKey, {
+        ...(originalRow || {}),
+        provider: providerName,
+        modelName,
+        label:
+          originalRow?.label ||
+          modelName,
+      });
+    }
+  };
+
+  const oldModels = Array.isArray(
+    oldRegistry.models
+  )
+    ? oldRegistry.models
+    : [];
+
+  for (const modelRow of oldModels) {
+    const info = getRegistryModelInfo(
+      modelRow,
+      oldRegistry
+    );
+
+    if (!info) continue;
+
+    ensureModel(
+      info.providerName,
+      info.modelName,
+      modelRow
+    );
+  }
+
+  for (const favorite of favoriteModels) {
+    ensureModel(
+      favorite.pname,
+      favorite.model
+    );
+  }
+
+  for (const poolName of [
+    'main',
+    'vice',
+    'proactive',
+    'vision',
+  ]) {
+    for (const item of modelPools[poolName] || []) {
+      ensureModel(
+        item.pname,
+        item.model
+      );
+    }
+  }
+
+  const active = getActiveProvider();
+
+  if (active) {
+    for (const modelName of allModels) {
+      ensureModel(
+        active.name,
+        modelName
+      );
+    }
+
+    const temporaryModel =
+      document.getElementById('s-model')
+        ?.value
+        ?.trim();
+
+    if (temporaryModel) {
+      ensureModel(
+        active.name,
+        temporaryModel
+      );
+    }
+  }
+
+  const favoriteKeys = new Set(
+    favoriteModels.map(
+      favorite =>
+        `${favorite.pname}/${favorite.model}`
+    )
+  );
+
+  const registryModels = [
+    ...modelMap.values(),
+  ].map(modelRow => {
+    const mapKey =
+      `${modelRow.provider}/${modelRow.modelName}`;
+
+    return {
+      ...modelRow,
+      starred: favoriteKeys.has(mapKey),
+    };
+  });
+
+  const existingPools =
+    oldRegistry.pools &&
+    typeof oldRegistry.pools === 'object'
+      ? oldRegistry.pools
+      : {};
+
+  const registryPools = {
+    ...existingPools,
+  };
+
+  for (const poolName of [
+    'main',
+    'vice',
+    'proactive',
+    'vision',
+  ]) {
+    registryPools[poolName] = (
+      modelPools[poolName] || []
+    ).map(
+      item =>
+        `${item.pname}/${item.model}`
+    );
+  }
+
+  return {
+    ...oldRegistry,
+    providers: registryProviders,
+    models: registryModels,
+    pools: registryPools,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function saveRegistryToGateway() {
+  if (isRegistrySyncing) return;
+
+  const gateway = getSetting('gateway', '');
+  if (!gateway) {
+    updateRegistrySyncStatus(
+      '统一注册表：尚未配置网关',
+      false
+    );
+    return;
+  }
+
+  const registry =
+    buildRegistryFromFrontend();
+
+  if (
+    !Array.isArray(registry.providers) ||
+    registry.providers.length === 0 ||
+    !Array.isArray(registry.models) ||
+    registry.models.length === 0
+  ) {
+    showStatus(
+      '⚠ 当前没有可保存的供应商或模型',
+      5000
+    );
+    return;
+  }
+
+  if (
+    !confirm(
+      `将当前 ${registry.providers.length} 个供应商、` +
+      `${registry.models.length} 个模型保存到统一注册表，确认吗？`
+    )
+  ) {
+    return;
+  }
+
+  isRegistrySyncing = true;
+
+  updateRegistrySyncStatus(
+    '统一注册表：正在保存…'
+  );
+
+  try {
+    const response = await fetch(
+      gateway + '/api/registry',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registry),
+      }
+    );
+
+    const rawText = await response.text();
+
+    let data = {};
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = {};
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        'HTTP ' + response.status
+      );
+    }
+
+    if (data.success === false) {
+      throw new Error(
+        data.error ||
+        data.message ||
+        '注册表保存失败'
+      );
+    }
+
+    modelRegistryCache = registry;
+
+    setSetting(
+      'modelRegistryCache',
+      JSON.stringify(registry)
+    );
+
+    updateRegistrySyncStatus(
+      `统一注册表：已保存 ${registry.providers.length} 个供应商，` +
+      `${registry.models.length} 个模型`,
+      true
+    );
+
+    showStatus('统一注册表保存成功 ✓');
+
+  } catch (error) {
+    console.error(
+      '统一注册表保存失败:',
+      error
+    );
+
+    updateRegistrySyncStatus(
+      '统一注册表保存失败：' + error.message,
+      false
+    );
+
+    showStatus(
+      '⚠ 注册表保存失败：' + error.message,
+      8000
+    );
+
+  } finally {
+    isRegistrySyncing = false;
+  }
+}
+  
 // ====== 供应商管理 ======
 function addProvider() {
   const name = document.getElementById('new-provider-name').value.trim();
@@ -1970,9 +2816,15 @@ function saveProviderEdit(index) {
   
 function setActiveProvider(index) {
   activeProvider = index;
-  setSetting('activeProvider', String(index));
+  setSetting(
+    'activeProvider',
+    String(index)
+  );
   updateProviderTags();
+  refreshModelsFromRegistryCache();
+  renderAllPools();
 }
+
 
 function renderProvidersList() {
   const el = document.getElementById('providers-list');
