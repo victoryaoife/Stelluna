@@ -1380,30 +1380,53 @@ function lockAction() {
 }
 
 function unlock() {
-  loadSettings();
+  // 先恢复本地日志
+  try {
+    activityLogs = JSON.parse(getSetting('activityLogs', '[]'));
+  } catch {
+    activityLogs = [];
+  }
+
+  // 本地消息优先加载，不能被设置页错误连坐
   loadMessages();
   renderAll();
-  updateProviderTags();
-  renderAllPools();
-  startProactiveTimer();
-  if (getSetting('sendLocation') === 'true') requestLocation();
-  if (messages.length === 0) syncFromCloud(false);
-  try { activityLogs = JSON.parse(getSetting('activityLogs', '[]')); } catch { activityLogs = []; }
+
+  // 设置单独加载；即使设置出错，聊天记录也已经恢复
+  try {
+    loadSettings();
+    updateProviderTags();
+    renderAllPools();
+    startProactiveTimer();
+
+    if (getSetting('sendLocation') === 'true') {
+      requestLocation();
+    }
+  } catch (e) {
+    console.error('设置加载失败:', e);
+    showStatus('⚠ 设置加载失败：' + e.message, 8000);
+  }
+
+  // 本地确实没有消息时，才尝试从云端恢复
+  if (messages.length === 0) {
+    syncFromCloud(false);
+  }
+
   if (isApp) {
     requestLocalNotifPermission();
     requestLocationPermission();
     initStatusBar();
     initKeyboard();
   }
+
   subscribePush();
 }
 
+
 function resetPassword() {
-  if (!confirm('重置密码将清除所有本地数据（聊天记录、设置等），但Supabase的数据不受影响。确定吗？')) return;
-  if (!confirm('真的确定吗？本地数据不可恢复！')) return;
-  localStorage.clear();
-  location.reload();
+  localStorage.removeItem('lockPassword');
+  showStatus('旧开屏密码记录已清除 ✓');
 }
+
 
 // ====== LocalStorage 工具 ======
 function getSetting(key, def = '') {
@@ -1735,7 +1758,6 @@ document.getElementById('s-gateway-mode').value =
 
 applyGatewayMode();
 
-  document.getElementById('s-gateway-token').value = getSetting('localGatewayToken', '');
   document.getElementById('s-model').value = getSetting('model', '');
   document.getElementById('s-context').value = getSetting('contextN', '20');
   document.getElementById('s-temp').value = getSetting('temperature', '0.7');
@@ -1813,7 +1835,6 @@ setSetting(
 
 applyGatewayMode();
 
-  setSetting('localGatewayToken', document.getElementById('s-gateway-token').value.trim());
   setSetting('model', document.getElementById('s-model').value.trim());
   setSetting('contextN', document.getElementById('s-context').value);
   setSetting('temperature', document.getElementById('s-temp').value);
@@ -1832,10 +1853,11 @@ applyGatewayMode();
 
 
   hidePanel('settings');
-  startProactiveTimer(); // 重启定时器
+  switchTab('chat');
+  startProactiveTimer();
   showStatus('设置已保存 ✓');
-
 }
+
 
 const activeProgressTasks = new Map();
 let progressHideTimer = null;
