@@ -1199,7 +1199,7 @@ html, body {
 <input type="file" id="img-input" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
 </div>
 
-html <script src="marked.min.js"></script>
+<script src="marked.min.js"></script>
 <script>
 // ====== 全局状态 ======
 let messages = [];
@@ -5456,6 +5456,7 @@ async function saveReviewedDiary(action, diary) {
     date: diary.date,
     content: diary.content,
     period_status: diary.period_status,
+    config: buildConfig(),
   };
 
   try {
