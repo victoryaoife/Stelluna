@@ -2205,6 +2205,14 @@ function applyRegistryToFrontend(registry) {
   const previousProviderName =
     providers[activeProvider]?.name || '';
 
+  const previousProvidersByName =
+    new Map(
+      providers.map(provider => [
+        String(provider.name || ''),
+        provider,
+      ])
+    );
+
   const convertedProviders = registryProviders
     .map(provider => {
       const name =
@@ -2219,21 +2227,33 @@ function applyRegistryToFrontend(registry) {
         provider.api_url ??
         '';
 
-      const key =
+      if (!name || !url) return null;
+
+      const providerName = String(name);
+
+      const incomingKey =
         provider.apiKey ??
         provider.key ??
         provider.api_key ??
         '';
 
-      if (!name || !url) return null;
+      const previousKey =
+        previousProvidersByName
+          .get(providerName)
+          ?.key || '';
 
       return {
-        name: String(name),
+        name: providerName,
         url: String(url),
-        key: String(key || ''),
+        key: String(
+          incomingKey ||
+          previousKey ||
+          ''
+        ),
       };
     })
     .filter(Boolean);
+
 
   if (convertedProviders.length === 0) {
     throw new Error(
@@ -2486,12 +2506,20 @@ function buildRegistryFromFrontend() {
           item.id === provider.name
       );
 
+      const preservedApiKey =
+        provider.key ||
+        oldProvider?.apiKey ||
+        oldProvider?.key ||
+        oldProvider?.api_key ||
+        '';
+
       return {
         ...(oldProvider || {}),
         name: provider.name,
         baseUrl: provider.url,
-        apiKey: provider.key,
+        apiKey: preservedApiKey,
       };
+
     }
   );
 
