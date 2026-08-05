@@ -3233,6 +3233,7 @@ function renderMarkdown(text) {
       { regex: /&lt;&lt;日历&gt;&gt;([\s\S]*?)&lt;&lt;\/日历&gt;&gt;/g, icon: '📝', label: '日历已添加' },
       { regex: /&lt;&lt;记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/记忆&gt;&gt;/g, icon: '📝', label: '记忆已创建' },
       { regex: /&lt;&lt;改记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/改记忆&gt;&gt;/g, icon: '📝', label: '记忆已更新' },
+      { regex: /&lt;&lt;编辑记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/编辑记忆&gt;&gt;/g, icon: '✂️', label: '记忆已编辑' },      
       { regex: /&lt;&lt;日记&gt;&gt;([\s\S]*?)&lt;&lt;\/日记&gt;&gt;/g, icon: '📝', label: '日记已写入' },
     ];
     for (const tag of tagTypes) {
@@ -5692,6 +5693,65 @@ async function detectStatusTags(content) {
     }
   }
 
+  const anchorEditRegex = /<<编辑记忆>>([\s\S]*?)<<\/编辑记忆>>/g;
+  const anchorEditMatches = Array.from(cleaned.matchAll(anchorEditRegex));
+
+  for (const anchorMatch of anchorEditMatches) {
+    const raw = anchorMatch[1];
+
+    const idMatch = raw.match(/id\s*:\s*(\d+)/i);
+    const opMatch = raw.match(/op\s*:\s*([a-z_]+)/i);
+    const oldMatch = raw.match(/---\s*old\s*---\n([\s\S]*?)\n---\s*new\s*---/i);
+    const newMatch = raw.match(/---\s*new\s*---\n([\s\S]*)$/i);
+
+    if (!idMatch || !opMatch) {
+      showStatus('⚠ 编辑记忆标记缺少 id 或 op', 5000);
+      continue;
+    }
+
+    const editId = idMatch[1];
+    const editOp = opMatch[1].toLowerCase();
+    const editOld = oldMatch ? oldMatch[1] : '';
+    const editNew = newMatch ? newMatch[1].replace(/\s*$/, '') : '';
+
+    const editTaskId = 'memedit-' + editId;
+    startProgressTask(editTaskId, '✂️ 正在编辑记忆 #' + editId + '…');
+
+    try {
+      const res = await fetch(gateway + '/api/memory/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: parseInt(editId),
+          op: editOp,
+          old: editOld,
+          new: editNew,
+        }),
+      });
+      const result = await res.json();
+
+      if (result.success) {
+        const delta = result.delta > 0 ? '+' + result.delta : String(result.delta);
+        finishProgressTask(editTaskId, '✂️ 记忆 #' + editId + ' 已编辑 ✓');
+        showStatus('记忆已编辑 ✓');
+        cleaned = cleaned.replace(
+          anchorMatch[0],
+          '<<编辑记忆>>ID:' + editId + ' 「' + (result.title || '') + '」\n'
+            + '操作：' + editOp + '\n'
+            + '字数：' + result.before_chars + ' → ' + result.after_chars
+            + '（' + delta + '）<</编辑记忆>>'
+        );
+      } else {
+        finishProgressTask(editTaskId, '✂️ 记忆 #' + editId + ' 编辑失败');
+        showStatus('⚠ 编辑记忆失败: ' + (result.error || '未知错误'), 8000);
+      }
+    } catch (e) {
+      console.error('锚点编辑记忆失败:', e);
+      finishProgressTask(editTaskId, '✂️ 记忆 #' + editId + ' 未完成');
+      showStatus('⚠ 编辑记忆失败: ' + e.message, 5000);
+    }
+  }
+  
   // 日记标记不在这里自动写库，改由 confirmDiaryTags 在当前回复生成完成后弹窗确认。
 
   // 还原代码框
