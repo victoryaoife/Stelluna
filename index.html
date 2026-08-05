@@ -5647,21 +5647,45 @@ async function detectStatusTags(content) {
         const memId = val.slice(0, sepIdx).trim();
         const instruction = val.slice(sepIdx + 1).trim();
         if (memId && instruction) {
+          const memTaskId = 'memupdate-' + memId;
+          startProgressTask(memTaskId, '🧠 正在改写记忆 #' + memId + '…');
+
+          const memController = new AbortController();
+          let memTimedOut = false;
+
+          // Worker 正文超时为 5 分钟，前端留出余量再断，
+          // 避免前端先放手导致上游已完成的改写结果丢失。
+          const memTimeoutId = setTimeout(() => {
+            memTimedOut = true;
+            memController.abort();
+          }, 360000);
+
           try {
             const res = await fetch(gateway + '/api/memory/smart-update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: parseInt(memId), instruction, config: buildConfig() }),
+              signal: memController.signal,
             });
             const result = await res.json();
             if (result.success) {
+              finishProgressTask(memTaskId, '🧠 记忆 #' + memId + ' 已更新 ✓');
               showStatus('记忆已更新 ✓');
-              cleaned = cleaned.replace(m[0], '<<改记忆>>' + memId + '|' + result.content + '<</改记忆>>'); 
-            } else { 
-              showStatus('⚠ 记忆修改失败: ' + (result.error || '未知错误'), 5000); 
+              cleaned = cleaned.replace(m[0], '▶ 📝 记忆已更新' + memId + '|' + result.content + '');
+            } else {
+              finishProgressTask(memTaskId, '🧠 记忆 #' + memId + ' 修改失败');
+              showStatus('⚠ 记忆修改失败: ' + (result.error || '未知错误'), 5000);
             }
           } catch (e) {
-            console.error('智能改记忆失败:', e); showStatus('⚠ 记忆修改失败: ' + e.message, 5000); 
+            console.error('智能改记忆失败:', e);
+            finishProgressTask(memTaskId, '🧠 记忆 #' + memId + ' 未完成');
+            if (memTimedOut) {
+              showStatus('⚠ 记忆修改超时（超过6分钟），已中断请求，记忆未改动', 8000);
+            } else {
+              showStatus('⚠ 记忆修改失败: ' + e.message, 5000);
+            }
+          } finally {
+            clearTimeout(memTimeoutId);
           }
         }
       }
