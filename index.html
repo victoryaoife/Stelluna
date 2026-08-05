@@ -36,29 +36,107 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 [data-theme="wx"] {
-  --bg: #EDEDED;
-  --surface: #EDEDED;
-  --surface2: #F7F7F7;
-  --border: #E0E0E0;
-  --text: #111111;
-  --text2: #888888;
-  --accent: #07C160;
-  --accent2: #06AD56;
-  --user-bg: #95EC69;
+  --bg: #F2F3F5;
+  --surface: #F2F3F5;
+  --surface2: #FFFFFF;
+  --border: #E5E6EA;
+  --text: #1A1A1A;
+  --text2: #8A8F99;
+  --accent: #0099FF;
+  --accent2: #007ACC;
+  --user-bg: #0099FF;
   --ai-bg: #FFFFFF;
-  --header-bg: #EDEDED;
-  --header-border: #D9D9D9;
-  --header-text: #111111;
-  --user-text: #111111;
-  --ai-text: #111111;
-  --input-text: #111111;
-  --input-area-bg: #F7F7F7;
-  --input-area-border: #F7F7F7;
+  --header-bg: #F7F8FA;
+  --header-border: #E5E6EA;
+  --header-text: #1A1A1A;
+  --user-text: #FFFFFF;
+  --ai-text: #1A1A1A;
+  --input-text: #1A1A1A;
+  --input-area-bg: #F7F8FA;
+  --input-area-border: #E5E6EA;
 }
 [data-theme="wx"] body {
   background-image: none;
-  background-color: #EDEDED;
+  background-color: #F2F3F5;
 }
+
+/* 伪装模式·气泡 */
+[data-theme="wx"] .msg-bubble {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 400;
+  max-width: 74%;
+}
+[data-theme="wx"] .msg.user .msg-bubble {
+  border-bottom-right-radius: 8px;
+}
+[data-theme="wx"] .msg.ai .msg-bubble {
+  border-top-left-radius: 8px;
+}
+[data-theme="wx"] .msg .msg-bubble + .msg-bubble {
+  margin-top: 4px;
+}
+
+/* 伪装模式·markdown 不改文字颜色，只留字重 */
+[data-theme="wx"] .msg-bubble strong { color: inherit; }
+[data-theme="wx"] .msg-bubble em {
+  color: inherit;
+  font-style: normal;
+}
+[data-theme="wx"] .msg-bubble code {
+  background: rgba(0,0,0,0.06);
+  color: inherit;
+}
+[data-theme="wx"] .msg.user .msg-bubble code {
+  background: rgba(255,255,255,0.22);
+}
+[data-theme="wx"] .msg-bubble blockquote {
+  border-left-color: rgba(0,0,0,0.15);
+  color: inherit;
+  font-style: normal;
+}
+[data-theme="wx"] .msg.user .msg-bubble blockquote {
+  border-left-color: rgba(255,255,255,0.4);
+}
+
+/* 伪装模式·藏掉不像社交软件的部件 */
+[data-theme="wx"] .msg-time { display: none; }
+[data-theme="wx"] .thinking-block { display: none; }
+[data-theme="wx"] #status-bar { display: none; }
+[data-theme="wx"] #bottom-nav { display: none; }
+[data-theme="wx"] .header-avatar { display: none; }
+[data-theme="wx"] #header .header-right { display: none; }
+[data-theme="wx"] #header {
+  justify-content: center;
+}
+[data-theme="wx"] .header-left::after {
+  content: '听月';
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--header-text);
+}
+
+/* 伪装模式·输入区 */
+[data-theme="wx"] #input {
+  border-radius: 6px;
+  background: #FFFFFF;
+  border-color: #E5E6EA;
+  font-weight: 400;
+  font-size: 16px;
+}
+[data-theme="wx"] #send-btn {
+  width: auto;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 6px;
+  background: #0099FF;
+  font-size: 15px;
+}
+
 html, body {
   height:100%; 
   background-image: url('./bg.png');
@@ -3081,6 +3159,39 @@ function applyTheme() {
     if (btn) btn.classList.toggle('active', t === theme);
   });
 }
+  
+// ====== 顶栏后门 ======
+// 伪装模式下底部导航被隐藏，双击顶栏直接进设置页，
+// 否则无法切回正常模式。
+let headerTapCount = 0;
+let headerTapTimer = null;
+
+function handleHeaderBackdoorTap() {
+  // 只在伪装模式下生效，避免正常模式误触
+  if (document.documentElement.getAttribute('data-theme') !== 'wx') {
+    return;
+  }
+
+  headerTapCount++;
+
+  if (headerTapTimer) {
+    clearTimeout(headerTapTimer);
+    headerTapTimer = null;
+  }
+
+  if (headerTapCount >= 2) {
+    headerTapCount = 0;
+    showPanel('settings');
+    return;
+  }
+
+  headerTapTimer = setTimeout(() => {
+    headerTapCount = 0;
+  }, 400);
+}
+
+document.getElementById('header')
+  .addEventListener('click', handleHeaderBackdoorTap);
 
 // ====== Toggle 开关 ======
 function toggleProactive() {
@@ -3383,8 +3494,22 @@ function createMsgEl(msg, index) {
   if (images.length > 0) {
     html += images.map(img => `<img class="msg-image" src="${img.url}" onclick="window.open(this.src)">`).join('');
   }
-  html += renderMarkdown(content);
-  bubble.innerHTML = html;
+  const isDisguise =
+    document.documentElement.getAttribute('data-theme') === 'wx';
+
+  const bubbleTexts = (isDisguise && msg.role === 'assistant')
+    ? splitContentForBubbles(content)
+    : [content];
+
+  bubble.innerHTML = html + renderMarkdown(bubbleTexts[0]);
+
+  const extraBubbles = bubbleTexts.slice(1).map(seg => {
+    const el = document.createElement('div');
+    el.className = 'msg-bubble';
+    el.innerHTML = renderMarkdown(seg);
+    return el;
+  });
+
 
   const time = document.createElement('div');
   time.className = 'msg-time';
@@ -3436,10 +3561,47 @@ function createMsgEl(msg, index) {
   });
 
   div.appendChild(bubble);
+  for (const el of extraBubbles) {
+    div.appendChild(el);
+  }
   div.appendChild(meta);
   return div;
+
 }
 
+// 按空行把回复切成多个气泡。
+// 代码块与标记块整体保护，绝不允许被切开。
+function splitContentForBubbles(text) {
+  if (!text) return [''];
+
+  const guards = [];
+  let guarded = text;
+
+  guarded = guarded.replace(/```[\s\S]*?```/g, m => {
+    guards.push(m);
+    return '\u0000G' + (guards.length - 1) + '\u0000';
+  });
+
+  guarded = guarded.replace(
+    /<<[^<>]*?>>[\s\S]*?<<\/[^<>]*?>>/g,
+    m => {
+      guards.push(m);
+      return '\u0000G' + (guards.length - 1) + '\u0000';
+    }
+  );
+
+  const parts = guarded
+    .split(/\n\s*\n/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(s => s.replace(
+      /\u0000G(\d+)\u0000/g,
+      (mm, i) => guards[Number(i)]
+    ));
+
+  return parts.length > 0 ? parts : [text];
+}
+  
 function toggleThinking(el) {
   el.querySelector('.thinking-arrow').classList.toggle('open');
   el.nextElementSibling.classList.toggle('show');
