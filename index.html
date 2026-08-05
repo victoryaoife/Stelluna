@@ -3598,6 +3598,7 @@ function splitContentForBubbles(text) {
     .split(/\n\s*\n/)
     .map(s => s.trim())
     .filter(Boolean)
+    .filter(s => !/^\s*([-*_])\s*(\1\s*){2,}$/.test(s))
     .map(s => s.replace(
       /\u0000G(\d+)\u0000/g,
       (mm, i) => guards[Number(i)]
