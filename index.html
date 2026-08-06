@@ -951,17 +951,22 @@ html, body {
   border-radius: 8px;
 }
 
-/* 只有一张表情包时，让气泡跟着图片收窄 */
-.msg-bubble:has(> .msg-emoji:only-child),
-.msg-bubble:has(> p:only-child > .msg-emoji:only-child) {
+/* 纯表情气泡：由 JS 明确添加 emoji-only，不再依赖 :has() */
+.msg-bubble.emoji-only {
   width: fit-content !important;
   max-width: fit-content !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-/* Markdown 可能会在图片外面套一层 p，清掉它的默认边距 */
-.msg-bubble > p:only-child:has(> .msg-emoji:only-child) {
-  margin: 0;
+.msg-bubble.emoji-only > p {
+  margin: 0 !important;
 }
+
 </style>
 <script src="capacitor.js"></script>  
 </head>
@@ -3507,6 +3512,10 @@ function renderMarkdown(text) {
   } catch { return text.replace(/\n/g, '<br>'); }
 }
 
+function isEmojiOnlyContent(text) {
+  return /^\s*\[表情:[^\[\]:]+\]\s*$/.test(text || '');
+}
+  
 function copyCode(btn) {
   const pre = btn.closest('.code-collapse')?.querySelector('pre code')
     || btn.closest('.code-header')?.nextElementSibling?.querySelector('code');
@@ -3605,6 +3614,7 @@ function renderAll() {
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
         bubble.innerHTML = renderMarkdown(seg);
+        if (isEmojiOnlyContent(seg)) bubble.classList.add('emoji-only');        
         bubble.addEventListener('click', (e) => {
           if (bubble.contentEditable === 'true') return;
           document.querySelectorAll('.msg-actions.show')
@@ -3670,12 +3680,18 @@ function createMsgEl(msg, index) {
     : [content];
 
   bubble.innerHTML = html + renderMarkdown(bubbleTexts[0]);
-
+  if (!html && isEmojiOnlyContent(bubbleTexts[0])) {
+    bubble.classList.add('emoji-only');
+  }
   const extraBubbles = bubbleTexts.slice(1).map(seg => {
     const el = document.createElement('div');
     el.className = 'msg-bubble';
     el.innerHTML = renderMarkdown(seg);
+    if (isEmojiOnlyContent(seg)) {
+      el.classList.add('emoji-only');
+    }
     return el;
+
   });
 
 
