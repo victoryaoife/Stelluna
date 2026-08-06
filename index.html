@@ -20,14 +20,14 @@
   --text2: #0F3266;
   --accent: #8CB9E6;
   --accent2: #69A0D6;
-  --user-bg: rgba(200,217,239,0.45);
+  --user-bg: rgba(40, 94, 165, 0.91);
   --ai-bg: rgba(247, 252, 255, 0.65);
   --danger: #ED7E7E;
   --success: #76E3D2;
   --header-bg: rgba(255, 255, 255, 0.55);
   --header-border: rgba(255, 255, 255, 0.3);
   --header-text: #436999;
-  --user-text: #074270;
+  --user-text: #f4faff;
   --ai-text: #3C77B0;
   --input-text: #074270;
   --input-area-bg: rgba(255, 255, 255, 0.55);
@@ -330,6 +330,7 @@ html, body {
 
 
 .bubble-group .msg-bubble + .msg-bubble { margin-top: 4px; }
+.msg > .bubble-group .msg-bubble { max-width: 90%; }
 .msg-bubble > *:first-child { margin-top: 0; }
 .msg-bubble > *:last-child { margin-bottom: 0; }
 .msg.proactive { opacity:0.9; }
