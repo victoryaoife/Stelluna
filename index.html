@@ -87,6 +87,7 @@
 }
 [data-theme="wx"] .msg.user {
   flex-direction: row-reverse;
+  align-items: flex-start;
 }
 [data-theme="wx"] .msg-avatar {
   display: block;
@@ -280,7 +281,7 @@ html, body {
 }
 .msg-time { font-size:13px; color:var(--text2); padding:0; }
 .msg-bubble p { margin:0.4em 0; }
-.msg-bubble p:first-child { margin-top:4; }
+.msg-bubble p:first-child { margin-top:0; }
 .msg-bubble p:last-child { margin-bottom:0; }
 .msg-bubble code {
   background:rgba(240,248,299,1); padding:1px 5px;
@@ -3460,37 +3461,54 @@ function renderAll() {
   }
   messages.forEach((msg, i) => {
     if (msg.role === 'user' && msg.segments && msg.segments.length > 1) {
-      msg.segments.forEach((seg, si) => {
-        const div = document.createElement('div');
-        div.className = 'msg user segment-bubble';
-        div.dataset.index = i;
+      const div = document.createElement('div');
+      div.className = 'msg user';
+      div.dataset.index = i;
+
+      const avatar = document.createElement('div');
+      avatar.className = 'msg-avatar';
+      const avatarImg = document.createElement('img');
+      avatarImg.src = 'Star.jpg';
+      avatarImg.alt = '星';
+      avatar.appendChild(avatarImg);
+
+      const group = document.createElement('div');
+      group.className = 'bubble-group';
+
+      const v = msg.versions[msg.activeVersion || 0];
+
+      const time = document.createElement('div');
+      time.className = 'msg-time';
+      time.textContent = formatTime(v.timestamp);
+
+      const actions = document.createElement('div');
+      actions.className = 'msg-actions';
+      actions.innerHTML = `<button onclick="startEdit(${i})">编辑</button>`
+        + `<button onclick="deleteMessage(${i})">删除</button>`;
+
+      msg.segments.forEach((seg) => {
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
         bubble.innerHTML = renderMarkdown(seg);
-        div.appendChild(bubble);
-        if (si === msg.segments.length - 1) {
-          const v = msg.versions[msg.activeVersion || 0];
-          const time = document.createElement('div');
-          time.className = 'msg-time';
-          time.textContent = formatTime(v.timestamp);
-          const actions = document.createElement('div');
-          actions.className = 'msg-actions';
-          actions.innerHTML = `<button onclick="startEdit(${i})">编辑</button>`
-            + `<button onclick="deleteMessage(${i})">删除</button>`;
-          const meta = document.createElement('div');
-          meta.className = 'msg-meta';
-          meta.appendChild(time);
-          meta.appendChild(actions);
-          bubble.addEventListener('click', (e) => {
-            if (bubble.contentEditable === 'true') return;
-            document.querySelectorAll('.msg-actions.show').forEach(a => a.classList.remove('show'));
-            actions.classList.toggle('show');
-            e.stopPropagation();
-          });
-          div.appendChild(meta);
-        }
-        container.appendChild(div);
+        bubble.addEventListener('click', (e) => {
+          if (bubble.contentEditable === 'true') return;
+          document.querySelectorAll('.msg-actions.show')
+            .forEach(a => a.classList.remove('show'));
+          actions.classList.toggle('show');
+          e.stopPropagation();
+        });
+        group.appendChild(bubble);
       });
+
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      meta.appendChild(time);
+      meta.appendChild(actions);
+      group.appendChild(meta);
+
+      div.appendChild(avatar);
+      div.appendChild(group);
+      container.appendChild(div);
     } else {
       container.appendChild(createMsgEl(msg, i));
     }
