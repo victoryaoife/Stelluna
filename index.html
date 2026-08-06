@@ -463,6 +463,13 @@ html, body {
   max-width:200px; max-height:200px; border-radius:8px;
   margin:4px 0; cursor:pointer;
 }
+.msg-emoji {
+  display:block;
+  width:150px;
+  max-width:60%;
+  border-radius:8px;
+  margin:2px 0;
+}
 .stop-btn {
   display: inline-block;
   margin: 4px 0 4px 48px;
@@ -3467,6 +3474,15 @@ function renderMarkdown(text) {
         return `<div class="thinking-block"><div class="thinking-toggle" onclick="toggleThinking(this)"><span class="thinking-arrow">▶</span> ${tag.icon} ${tag.label}</div><div class="thinking-content">${content}</div></div>`;
       });
     }
+    // 表情包：把 [表情:名称] 换成 emoji 文件夹里的图片。
+    // 文件名是中文，必须编码，否则部分环境会 404。
+    html = html.replace(/\[表情:([^\[\]:]+)\]/g, (match, name) => {
+      const clean = name.trim();
+      if (!clean) return match;
+      const src = 'emoji/' + encodeURIComponent(clean) + '.png';
+      return '<img class="msg-emoji" src="' + src + '" alt="'
+        + escapeHtml(clean) + '" title="' + escapeHtml(clean) + '">';
+    });
     return html;
   } catch { return text.replace(/\n/g, '<br>'); }
 }
