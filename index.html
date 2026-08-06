@@ -78,7 +78,7 @@
   border-top-left-radius: 8px;
 }
 [data-theme="wx"] .msg .msg-bubble + .msg-bubble {
-  margin-top: 4px;
+  margin-top: 0px;
 }
 [data-theme="wx"] .msg {
   flex-direction: row;
@@ -104,8 +104,44 @@
   object-fit: cover;
 }
 [data-theme="wx"] .msg > .bubble-group {
-  max-width: calc(100% - 44px);
+  max-width: 100%;
+  padding-left: 44px;
 }
+[data-theme="wx"] .msg.user > .bubble-group {
+  padding-left: 0;
+  padding-right: 44px;
+}
+[data-theme="wx"] .msg > .msg-avatar {
+  display: none;
+}
+[data-theme="wx"] .bubble-group .msg-bubble {
+  position: relative;
+}
+[data-theme="wx"] .msg.ai .bubble-group .msg-bubble::before {
+  content: '';
+  position: absolute;
+  left: -44px;
+  top: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background-image: url('Moon.jpg');
+  background-size: cover;
+  background-position: center;
+}
+[data-theme="wx"] .msg.user .bubble-group .msg-bubble::before {
+  content: '';
+  position: absolute;
+  right: -44px;
+  top: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background-image: url('Star.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
 [data-theme="wx"] .msg > .bubble-group .msg-bubble {
   max-width: 100%;
 }
