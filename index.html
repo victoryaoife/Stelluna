@@ -292,15 +292,42 @@ html, body {
 .msg.ai > .bubble-group { align-items:flex-start; }
 .msg { flex-direction: row; align-items: flex-start; gap: 8px; }
 .msg.user { flex-direction: row-reverse; align-items: flex-start; }
-.msg-avatar {
-  display: block;
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  margin-top: 2px;
+.msg > .msg-avatar { display: none; }
+.msg.pending { flex-direction: column; align-items: flex-end; }
+.msg > .bubble-group {
+  max-width: 100%;
+  padding-left: 46px;
 }
-.msg-avatar img { width:100%; height:100%; object-fit:cover; }
+.msg.user > .bubble-group {
+  padding-left: 0;
+  padding-right: 46px;
+}
+.bubble-group .msg-bubble { position: relative; }
+.msg.ai .bubble-group .msg-bubble::before {
+  content: '';
+  position: absolute;
+  left: -46px;
+  top: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-image: url('Moon.jpg');
+  background-size: cover;
+  background-position: center;
+}
+.msg.user .bubble-group .msg-bubble::before {
+  content: '';
+  position: absolute;
+  right: -46px;
+  top: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-image: url('Star.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
 
 .bubble-group .msg-bubble + .msg-bubble { margin-top: 4px; }
 .msg-bubble > *:first-child { margin-top: 0; }
@@ -396,11 +423,7 @@ html, body {
   background: var(--user-bg);
   color: var(--user-text);
 }
-[data-theme="wx"] .msg.pending .msg-bubble {
-  background: #D6EBFF;
-  color: #1A1A1A;
-  border: 1px dashed #0099FF;
-}
+
 .msg.pending .msg-actions {
   display:flex;
 }
