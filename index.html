@@ -80,6 +80,35 @@
 [data-theme="wx"] .msg .msg-bubble + .msg-bubble {
   margin-top: 4px;
 }
+[data-theme="wx"] .msg {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+[data-theme="wx"] .msg.user {
+  flex-direction: row-reverse;
+}
+[data-theme="wx"] .msg-avatar {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+[data-theme="wx"] .msg-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+[data-theme="wx"] .msg > .bubble-group {
+  max-width: calc(100% - 44px);
+}
+[data-theme="wx"] .msg > .bubble-group .msg-bubble {
+  max-width: 100%;
+}
+  
 
 /* 伪装模式·markdown 不改文字颜色，只留字重 */
 [data-theme="wx"] .msg-bubble strong { color: inherit; }
@@ -115,7 +144,7 @@
 }
 [data-theme="wx"] .header-left::after {
   content: '听月';
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 500;
   color: var(--header-text);
 }
@@ -133,13 +162,9 @@
   font-size: 16px;
 }
 [data-theme="wx"] #send-btn {
-  width: auto;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 6px;
   background: #0099FF;
-  font-size: 15px;
 }
+
 
 html, body {
   height:100%; 
@@ -223,6 +248,12 @@ html, body {
 @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 .msg.user { align-self:flex-end; align-items:flex-end; }
 .msg.ai { align-self:flex-start; align-items:flex-start; }
+.msg > .bubble-group {
+  display:flex; flex-direction:column; max-width:100%;
+}
+.msg.user > .bubble-group { align-items:flex-end; }
+.msg.ai > .bubble-group { align-items:flex-start; }
+.msg-avatar { display:none; }  
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   display: inline-block;
@@ -249,7 +280,7 @@ html, body {
 }
 .msg-time { font-size:13px; color:var(--text2); padding:0; }
 .msg-bubble p { margin:0.4em 0; }
-.msg-bubble p:first-child { margin-top:0; }
+.msg-bubble p:first-child { margin-top:4; }
 .msg-bubble p:last-child { margin-bottom:0; }
 .msg-bubble code {
   background:rgba(240,248,299,1); padding:1px 5px;
@@ -3564,12 +3595,25 @@ function createMsgEl(msg, index) {
     e.stopPropagation();
   });
 
-  div.appendChild(bubble);
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  const avatarImg = document.createElement('img');
+  avatarImg.src = msg.role === 'user' ? 'Star.jpg' : 'Moon.jpg';
+  avatarImg.alt = msg.role === 'user' ? '星' : '月';
+  avatar.appendChild(avatarImg);
+
+  const group = document.createElement('div');
+  group.className = 'bubble-group';
+  group.appendChild(bubble);
   for (const el of extraBubbles) {
-    div.appendChild(el);
+    group.appendChild(el);
   }
-  div.appendChild(meta);
+  group.appendChild(meta);
+
+  div.appendChild(avatar);
+  div.appendChild(group);
   return div;
+
 
 }
 
