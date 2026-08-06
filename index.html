@@ -942,7 +942,26 @@ html, body {
   font-size:16px; cursor:pointer; margin-left:8px; padding:4px;
 }
 .cal-item .cal-delete:hover { color:var(--danger); }
+.msg-bubble .msg-emoji {
+  display: block;
+  width: 128px !important;
+  max-width: none !important;
+  height: auto;
+  margin: 0;
+  border-radius: 8px;
+}
 
+/* 只有一张表情包时，让气泡跟着图片收窄 */
+.msg-bubble:has(> .msg-emoji:only-child),
+.msg-bubble:has(> p:only-child > .msg-emoji:only-child) {
+  width: fit-content !important;
+  max-width: fit-content !important;
+}
+
+/* Markdown 可能会在图片外面套一层 p，清掉它的默认边距 */
+.msg-bubble > p:only-child:has(> .msg-emoji:only-child) {
+  margin: 0;
+}
 </style>
 <script src="capacitor.js"></script>  
 </head>
