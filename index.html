@@ -78,7 +78,7 @@
   border-top-left-radius: 8px;
 }
 [data-theme="wx"] .msg .msg-bubble + .msg-bubble {
-  margin-top: 0px;
+  margin-top: 8px;
 }
 [data-theme="wx"] .msg {
   flex-direction: row;
@@ -291,6 +291,7 @@ html, body {
 .msg.user > .bubble-group { align-items:flex-end; }
 .msg.ai > .bubble-group { align-items:flex-start; }
 .msg-avatar { display:none; }  
+.bubble-group .msg-bubble + .msg-bubble { margin-top: 4px; }
 .msg.proactive { opacity:0.9; }
 .msg-bubble {
   display: inline-block;
