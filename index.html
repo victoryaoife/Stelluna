@@ -3066,21 +3066,43 @@
         }
 
         // ====== 状态栏 ======
-        function showStatus(msg, duration = 3000) {
-            const bar = document.getElementById('status-bar');
-            bar.textContent = msg;
-            bar.classList.add('show');
-            setTimeout(() => bar.classList.remove('show'), duration);
-
-            // 记录到日志
+        function recordActivityLog(msg) {
             const now = new Date();
-            const timeStr = String(now.getHours()).padStart(2, '0') + ':' +
+            const timeStr =
+                String(now.getHours()).padStart(2, '0') + ':' +
                 String(now.getMinutes()).padStart(2, '0') + ':' +
                 String(now.getSeconds()).padStart(2, '0');
-            activityLogs.unshift({time: timeStr, msg});
-            if (activityLogs.length > 200) activityLogs.pop();
-            localStorage.setItem('activityLogs', JSON.stringify(activityLogs));
+
+            activityLogs.unshift({
+                time: timeStr,
+                msg,
+            });
+
+            if (activityLogs.length > 200) {
+                activityLogs.pop();
+            }
+
+            localStorage.setItem(
+                'activityLogs',
+                JSON.stringify(activityLogs)
+            );
         }
+
+        function showStatus(msg, duration = 3000) {
+            const bar =
+                document.getElementById('status-bar');
+
+            bar.textContent = msg;
+            bar.classList.add('show');
+
+            setTimeout(
+                () => bar.classList.remove('show'),
+                duration
+            );
+
+            recordActivityLog(msg);
+        }
+
 
         // ====== 统一模型注册表 ======
 
@@ -5262,8 +5284,43 @@
 
         // ====== 流式生成 ======
         async function generateResponse(aiIndex, images = null) {
+            const requestId =
+                window.crypto &&
+                typeof window.crypto.randomUUID === 'function'
+                    ? window.crypto.randomUUID()
+                    : (
+                        'web-' +
+                        Date.now() +
+                        '-' +
+                        Math.random()
+                            .toString(36)
+                            .slice(2, 10)
+                    );
+
+            const requestStartedAt = Date.now();
+            let confirmedRequestId = requestId;
+
+            recordActivityLog(
+                '🧾 聊天请求发出：' +
+                requestId +
+                ' · ' +
+                (
+                    Array.isArray(images) &&
+                    images.length > 0
+                        ? '带图'
+                        : '纯文字'
+                )
+            );
+
+            console.log(
+                '[Stelluna Request]',
+                requestId,
+                'started'
+            );
+
             isGenerating = true;
             wasHiddenDuringGeneration = false;
+
             document.getElementById('send-btn').disabled = true;
 
             // 保存当前回复对象的引用。归档会裁剪 messages 并改变数组下标，
@@ -5321,15 +5378,77 @@
 
             try {
                 currentAbortController = new AbortController();
-                const response = await fetch(gateway + '/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(requestBody),
-                    signal: currentAbortController.signal,
-                });
+                const response = await fetch(
+                    gateway + '/api/chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json',
+                            'X-Stelluna-Request-Id':
+                                requestId,
+                        },
+                        body: JSON.stringify(
+                            requestBody
+                        ),
+                        signal:
+                            currentAbortController.signal,
+                    }
+                );
 
+                const returnedRequestId =
+                    String(
+                        response.headers.get(
+                            'X-Stelluna-Request-Id'
+                        ) || ''
+                    ).trim();
+
+                if (returnedRequestId) {
+                    confirmedRequestId =
+                        returnedRequestId;
+                }
+
+                const routeName =
+                    getSetting(
+                        'lastGatewayRoute',
+                        '未知线路'
+                    );
+
+                recordActivityLog(
+                    '🔗 聊天响应已连接：' +
+                    confirmedRequestId +
+                    ' · 线路=' +
+                    routeName +
+                    ' · HTTP ' +
+                    response.status
+                );
+
+                console.log(
+                    '[Stelluna Request]',
+                    {
+                        sent: requestId,
+                        returned:
+                            returnedRequestId ||
+                            'missing',
+                        route: routeName,
+                        status: response.status,
+                    }
+                );
+
+                if (
+                    returnedRequestId &&
+                    returnedRequestId !== requestId
+                ) {
+                    recordActivityLog(
+                        '⚠ 请求编号不一致：前端=' +
+                        requestId +
+                        ' · 响应=' +
+                        returnedRequestId
+                    );
+                }
 
                 if (!response.ok) {
+
                     const errText = await response.text();
                     throw new Error('API 错误: ' + response.status + ' ' + errText);
                 }
@@ -5528,10 +5647,59 @@
                 saveMessages();
                 renderAll();
 
+                recordActivityLog(
+                    '✅ 聊天请求完成：' +
+                    confirmedRequestId +
+                    ' · 耗时=' +
+                    (
+                        Date.now() -
+                        requestStartedAt
+                    ) +
+                    'ms'
+                );
+
+                console.log(
+                    '[Stelluna Request]',
+                    confirmedRequestId,
+                    'completed in',
+                    Date.now() -
+                    requestStartedAt,
+                    'ms'
+                );
+
             } catch (err) {
+
                 clearProgressTasks();
-                showStatus('⚠ 生成失败: ' + err.message, 5000);
+
+                recordActivityLog(
+                    '❌ 聊天请求失败：' +
+                    confirmedRequestId +
+                    ' · 耗时=' +
+                    (
+                        Date.now() -
+                        requestStartedAt
+                    ) +
+                    'ms · 错误=' +
+                    err.message
+                );
+
+                showStatus(
+                    '⚠ 生成失败 [' +
+                    confirmedRequestId.slice(0, 8) +
+                    ']: ' +
+                    err.message,
+                    5000
+                );
+
+                console.error(
+                    '[Stelluna Request]',
+                    confirmedRequestId,
+                    'failed:',
+                    err
+                );
+
                 // 不删除消息，显示重试按钮
+
                 const retryBtn = document.createElement('button');
                 retryBtn.className = 'stop-btn';
                 retryBtn.textContent = '🔄 重试';
