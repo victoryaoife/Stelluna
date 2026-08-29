@@ -4361,31 +4361,83 @@
         function loadMessages() {
             try {messages = JSON.parse(localStorage.getItem('chatMessages') || '[]');} catch {messages = [];}
         }
+        function isSyntheticLegacyMessageId(messageId) {
+            return typeof messageId === 'string' &&
+                /^legacy:\d{4}-\d{2}-\d{2}:\d+:[0-9a-f]{8}$/i.test(messageId);
+        }
+        function messageIdentityFields(message) {
+            const historyId = message && message.id ? String(message.id) : '';
+            const messageId = message && message.message_id
+                ? String(message.message_id)
+                : (isSyntheticLegacyMessageId(historyId) ? historyId : '');
+            return {
+                ...(historyId ? {id: historyId} : {}),
+                ...(messageId ? {message_id: messageId} : {}),
+                ...(message && message.client_message_id
+                    ? {client_message_id: String(message.client_message_id)}
+                    : {}),
+                ...(message && message.request_id
+                    ? {request_id: String(message.request_id)}
+                    : {}),
+                ...(message && message.status ? {status: String(message.status)} : {}),
+                ...(message && message.created_at
+                    ? {created_at: String(message.created_at)}
+                    : {}),
+            };
+        }
+        function restoreWorkerHistoryMessage(message) {
+            const createdAt = message.created_at || message.timestamp || '';
+            return {
+                role: message.role,
+                versions: [{
+                    content: message.content || '',
+                    timestamp: createdAt,
+                }],
+                activeVersion: 0,
+                source: message.source || 'normal',
+                ...messageIdentityFields(message),
+            };
+        }
+        function hasMessageIdentity(message) {
+            return Boolean(
+                message && (
+                    message.id ||
+                    message.message_id ||
+                    message.client_message_id ||
+                    message.request_id
+                )
+            );
+        }
+        function needsMessageIdentityMigration() {
+            return messages.some(message => {
+                const version = message.versions
+                    ? message.versions[message.activeVersion || 0]
+                    : message;
+                return isPersistableChatMessage(message.role, version && version.content) &&
+                    !hasMessageIdentity(message);
+            });
+        }
         async function syncFromCloud(force = false) {
             const gateway = getSetting('gateway');
             if (!gateway) return;
             const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
             try {
-                const res = await fetch(`${gateway}/api/memory/chatlogs/${today}`);
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const res = await fetch(
+                    `${gateway}/api/chat/history?date=${encodeURIComponent(today)}&timezone=${encodeURIComponent(timezone)}`
+                );
                 if (!res.ok) return;
                 const data = await res.json();
-                if (!data || !data.messages_json || data.messages_json.length === 0) return;
-                if (data.messages_json.length > messages.length || force) {
-                    messages = data.messages_json
+                if (!data || !Array.isArray(data.messages) || data.messages.length === 0) return;
+                if (data.messages.length > messages.length || force || needsMessageIdentityMigration()) {
+                    messages = data.messages
                         .filter(m =>
                             isPersistableChatMessage(
                                 m.role,
                                 m.content
                             )
                         )
-                        .map(m => ({
-                            role: m.role,
-                            versions: [{
-                                content: m.content || '',
-                                timestamp: m.timestamp || '',
-                            }],
-                            activeVersion: 0,
-                        }));
+                        .map(restoreWorkerHistoryMessage);
 
                     saveMessages();
                     renderAll();
@@ -4769,6 +4821,11 @@
         }
         // ====== 编辑 ======
         function startEdit(index) {
+            if (!hasMessageIdentity(messages[index])) {
+                showStatus('正在从 Worker 恢复消息身份，请稍后重新编辑…');
+                syncFromCloud(true);
+                return;
+            }
             const allEls = document.querySelectorAll('.msg[data-index="' + index + '"]');
             const msgEl = allEls[allEls.length - 1];
             const bubble = msgEl.querySelector('.msg-bubble');
@@ -5083,6 +5140,7 @@
                     content: v.content || '',
                     timestamp: v.timestamp || m.timestamp || '',
                     source: m.source || 'normal',
+                    ...messageIdentityFields(m),
                 };
             });
         }
@@ -5135,6 +5193,7 @@
                             m.timestamp ||
                             '',
                         source: m.source || 'normal',
+                        ...messageIdentityFields(m),
                     };
                 });
         }
@@ -5163,6 +5222,17 @@
         }
 
         // ====== 发送消息 ======
+        function createChatRequestId() {
+            return window.crypto &&
+                typeof window.crypto.randomUUID === 'function'
+                    ? window.crypto.randomUUID()
+                    : (
+                        'web-' +
+                        Date.now() +
+                        '-' +
+                        Math.random().toString(36).slice(2, 10)
+                    );
+        }
         async function sendMessage() {
             if (isLoadingXhs) {
                 showStatus('📕 小红书内容还在加载中，稍等一下就好～', 3000);
@@ -5207,6 +5277,10 @@
 
             startExpectedProgressTasks(userContent, hasPendingImage);
 
+            const requestId = createChatRequestId();
+            const userMessageId = `legacy:${requestId}:user`;
+            const assistantMessageId = `${requestId}:assistant`;
+
             if (pendingImage) {
 
                 userContent += (userContent ? '\n' : '') + pendingImage.placeholder;
@@ -5217,6 +5291,10 @@
 
             // 用户消息
             messages.push({
+                id: userMessageId,
+                message_id: userMessageId,
+                client_message_id: userMessageId,
+                request_id: requestId,
                 role: 'user',
                 versions: [{
                     content: userContent,
@@ -5247,6 +5325,9 @@
 
             // AI占位
             messages.push({
+                id: assistantMessageId,
+                message_id: assistantMessageId,
+                request_id: requestId,
                 role: 'assistant',
                 versions: [{content: '', timestamp: new Date().toISOString(), thinking: ''}],
                 activeVersion: 0,
@@ -5258,7 +5339,7 @@
             // 重置主动消息定时器
             resetProactiveTimer();
 
-            await generateResponse(messages.length - 1, imagePayload);
+            await generateResponse(messages.length - 1, imagePayload, requestId);
         }
 
         // ====== Retry ======
@@ -5283,19 +5364,13 @@
         }
 
         // ====== 流式生成 ======
-        async function generateResponse(aiIndex, images = null) {
-            const requestId =
-                window.crypto &&
-                typeof window.crypto.randomUUID === 'function'
-                    ? window.crypto.randomUUID()
-                    : (
-                        'web-' +
-                        Date.now() +
-                        '-' +
-                        Math.random()
-                            .toString(36)
-                            .slice(2, 10)
-                    );
+        async function generateResponse(aiIndex, images = null, existingRequestId = '') {
+            const targetMessage = messages[aiIndex];
+            const requestId = existingRequestId || targetMessage?.request_id || createChatRequestId();
+            const assistantMessageId = `${requestId}:assistant`;
+            targetMessage.id = targetMessage.id || assistantMessageId;
+            targetMessage.message_id = targetMessage.message_id || assistantMessageId;
+            targetMessage.request_id = targetMessage.request_id || requestId;
 
             const requestStartedAt = Date.now();
             let confirmedRequestId = requestId;
@@ -5325,7 +5400,6 @@
 
             // 保存当前回复对象的引用。归档会裁剪 messages 并改变数组下标，
             // 但被保留的消息对象本身不会改变。
-            const targetMessage = messages[aiIndex];
             const targetVersionIndex = targetMessage?.activeVersion || 0;
 
             const container = document.getElementById('messages');
@@ -6093,31 +6167,25 @@
             showStatus('正在拉取...');
 
             try {
-                const res = await fetch(`${gateway}/api/memory/chatlogs/${date}`);
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const res = await fetch(
+                    `${gateway}/api/chat/history?date=${encodeURIComponent(date)}&timezone=${encodeURIComponent(timezone)}`
+                );
                 const data = await res.json();
 
-                if (!data || (!data.content && !data.messages_json)) {
+                if (!data || !Array.isArray(data.messages)) {
                     alert('该日期没有聊天记录');
                     return;
                 }
 
-                const parsed = data.messages_json
-                    ? data.messages_json
-                        .filter(m =>
-                            isPersistableChatMessage(
-                                m.role,
-                                m.content
-                            )
+                const parsed = data.messages
+                    .filter(m =>
+                        isPersistableChatMessage(
+                            m.role,
+                            m.content
                         )
-                        .map(m => ({
-                            role: m.role,
-                            versions: [{
-                                content: m.content || '',
-                                timestamp: m.timestamp || '',
-                            }],
-                            activeVersion: 0,
-                        }))
-                    : parseChatlog(data.content);
+                    )
+                    .map(restoreWorkerHistoryMessage);
 
                 if (parsed.length === 0) {
                     alert('解析失败或记录为空');
