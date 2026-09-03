@@ -3896,8 +3896,8 @@
 
                 if (!response.ok) {
                     throw new Error(
-                        data.error ||
                         data.message ||
+                        data.error ||
                         'HTTP ' + response.status
                     );
                 }
