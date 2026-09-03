@@ -3804,6 +3804,17 @@
             const registryPools = {
                 ...existingPools,
             };
+            
+            for (const poolName of [
+                'agent',
+                'embedding',
+                'reranker',
+                'search',            
+            ]) {
+                if (!Array.isArray(registryPools[poolName])) {
+                    registryPools[poolName] = [];
+                }
+            }
 
             for (const poolName of [
                 'main',
