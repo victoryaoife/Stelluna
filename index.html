@@ -5371,7 +5371,7 @@
             msg.activeVersion = msg.versions.length - 1;
             saveMessages();
 
-            generateResponse(index);
+            generateResponse(index, null, createChatRequestId());
         }
 
         // ====== 流式生成 ======
@@ -5379,9 +5379,9 @@
             const targetMessage = messages[aiIndex];
             const requestId = existingRequestId || targetMessage?.request_id || createChatRequestId();
             const assistantMessageId = `${requestId}:assistant`;
-            targetMessage.id = targetMessage.id || assistantMessageId;
-            targetMessage.message_id = targetMessage.message_id || assistantMessageId;
-            targetMessage.request_id = targetMessage.request_id || requestId;
+            targetMessage.id = assistantMessageId;
+            targetMessage.message_id = assistantMessageId;
+            targetMessage.request_id = requestId;
 
             const requestStartedAt = Date.now();
             let confirmedRequestId = requestId;
@@ -5790,7 +5790,7 @@
                 retryBtn.textContent = '🔄 重试';
                 retryBtn.onclick = () => {
                     retryBtn.remove();
-                    generateResponse(aiIndex, images);
+                    generateResponse(aiIndex, images, createChatRequestId());
                 };
                 aiBubble.appendChild(retryBtn);
             }
