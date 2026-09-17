@@ -2108,6 +2108,16 @@
                 <button class="small-btn" onclick="addToPoolManual('vision')">+手动</button>
             </div>
         </div>
+        <div class="setting-group">
+            <label>Agent 模型池（事件提取等后台任务）</label>
+            <div id="pool-agent"></div>
+            <div class="pool-add">
+                <select id="pool-agent-select"></select>
+                <button class="small-btn" onclick="addToPool('agent')">添加</button>
+                <input id="pool-agent-manual" placeholder="手动输入模型名" style="flex:1;font-size:13px;">
+                <button class="small-btn" onclick="addToPoolManual('agent')">+手动</button>
+            </div>
+        </div>
 
         <hr class="divider">
 
@@ -2338,7 +2348,7 @@
         let favoriteModels = [];
         let allModels = [];
         let currentMemoryTab = 'core';
-        let modelPools = {main: [], vice: [], proactive: [], vision: []};
+        let modelPools = {main: [], vice: [], proactive: [], vision: [], agent: []};
         let modelRegistryCache = null;
         let isRegistrySyncing = false;
         let proactiveTimer = null;
@@ -2942,7 +2952,9 @@
             document.getElementById('s-embed-model').value = getSetting('embedModel', '');
 
             // 轮询池
-            try {modelPools = JSON.parse(getSetting('modelPools', '{"main":[],"vice":[],"proactive":[],"vision":[]}'));} catch {modelPools = {main: [], vice: [], proactive: [], vision: []};}
+            try {modelPools = JSON.parse(getSetting('modelPools', '{"main":[],"vice":[],"proactive":[],"vision":[],"agent":[]}'));} catch {modelPools = {main: [], vice: [], proactive: [], vision: [], agent: []};}
+            if (!Array.isArray(modelPools.agent)) modelPools.agent = [];
+            try {modelRegistryCache = JSON.parse(getSetting('modelRegistryCache', 'null'));} catch {modelRegistryCache = null;}
 
 
             // Toggles
@@ -3471,6 +3483,7 @@
                 vice: [],
                 proactive: [],
                 vision: [],
+                agent: [],
             };
 
             for (const poolName of [
@@ -3478,6 +3491,7 @@
                 'vice',
                 'proactive',
                 'vision',
+                'agent',
             ]) {
                 const refs = Array.isArray(
                     registryPools[poolName]
@@ -3744,6 +3758,7 @@
                 'vice',
                 'proactive',
                 'vision',
+                'agent',
             ]) {
                 for (const item of modelPools[poolName] || []) {
                     ensureModel(
@@ -3821,6 +3836,7 @@
                 'vice',
                 'proactive',
                 'vision',
+                'agent',
             ]) {
                 registryPools[poolName] = (
                     modelPools[poolName] || []
@@ -4182,7 +4198,7 @@
         }
 
         function renderAllPools() {
-            ['main', 'vice', 'proactive', 'vision'].forEach(renderPool);
+            ['main', 'vice', 'proactive', 'vision', 'agent'].forEach(renderPool);
         }
 
         function addToPool(poolName) {
@@ -5092,13 +5108,25 @@
         }
 
         // ====== 获取配置对象 ======
-        function resolvePool(poolName) {
-            const pool = modelPools[poolName] || [];
+        function resolvePoolEntries(pool) {
             return pool.map(entry => {
                 const provider = providers.find(p => p.name === entry.pname);
                 if (!provider) return null;
                 return {url: provider.url, key: provider.key, model: entry.model, pname: entry.pname};
             }).filter(Boolean);
+        }
+
+        function resolvePool(poolName) {
+            return resolvePoolEntries(modelPools[poolName] || []);
+        }
+
+        function resolveRegistryPurposePool(poolName) {
+            const refs = modelRegistryCache?.pools?.[poolName];
+            if (!Array.isArray(refs)) return [];
+            const legacyEntries = refs
+                .map(ref => registryPoolRefToLegacy(ref, modelRegistryCache))
+                .filter(Boolean);
+            return resolvePoolEntries(legacyEntries);
         }
 
         function buildConfig() {
@@ -5129,6 +5157,10 @@
             config.vice_pool = resolvePool('vice');
             config.proactive_pool = resolvePool('proactive');
             config.vision_pool = resolvePool('vision');
+            config.agent_pool = resolvePool('agent');
+            if (config.agent_pool.length === 0) {
+                config.agent_pool = resolveRegistryPurposePool('agent');
+            }
 
             return config;
         }
@@ -6884,7 +6916,7 @@
         }
 
         function escapeRegExp(str) {
-            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\__CODEBLOCK_6__');
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         function getDiaryTagRegex() {
@@ -6961,7 +6993,7 @@
                     renderAll();
                 }
 
-                await runAfterDiarySavedFlow(result.diary.date);
+                await runAfterDiarySavedFlow(result.diary.date, result.diary);
             }
 
             return updatedContent;
@@ -7109,7 +7141,404 @@
             }
         }
 
-        async function runAfterDiarySavedFlow(date) {
+        const EVENT_EMOTION_OPTIONS = [
+            '快乐', '悲伤', '恐惧', '愤怒', '期待', '心疼', '心动', '委屈',
+            '焦虑', '安心', '吃醋', '爱欲', '兴奋', '得意', '尴尬', '困惑', '内疚',
+        ];
+
+        const EVENT_IMPRESSION_OPTIONS = [
+            '敏锐', '调皮', '狡猾', '可爱', '温柔', '善良', '勇敢',
+            '自我保护', '边界感', '好学', '倔强', '护短', '犯蠢', '掌控',
+        ];
+
+        function buildEventExtractionMessages(date) {
+            return messages
+                .map(message => {
+                    const version = message.versions
+                        ? message.versions[message.activeVersion || 0]
+                        : message;
+                    return {
+                        role: message.role,
+                        content: String(version.content || '').replace(/⟦[^⟧]*⟧\s*/g, ''),
+                        timestamp: version.timestamp || message.timestamp || '',
+                    };
+                })
+                .filter(message => {
+                    if (!['user', 'assistant'].includes(message.role)) return false;
+                    if (!message.content.trim()) return false;
+                    if (!message.timestamp) return true;
+                    return getBeijingDateFromTimestamp(message.timestamp) === date;
+                });
+        }
+
+        async function requestEventCandidates(date, diary) {
+            const gateway = getSetting('gateway');
+            const res = await fetch(gateway + '/api/events/extract', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    date,
+                    diary,
+                    messages: buildEventExtractionMessages(date),
+                    config: buildConfig(),
+                }),
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok || result.success === false) {
+                throw new Error(result.error || '事件提取失败');
+            }
+            return result;
+        }
+
+        function eventDateTimeInputValue(value, date) {
+            const parsed = new Date(value || '');
+            if (Number.isNaN(parsed.getTime())) return date + 'T12:00';
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Shanghai',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+            }).formatToParts(parsed);
+            const get = type => parts.find(part => part.type === type)?.value || '';
+            return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+        }
+
+        function showEventConfirmDialog(payload) {
+            return new Promise(resolve => {
+                const date = payload.date;
+                const existingEvents = Array.isArray(payload.existing_events)
+                    ? payload.existing_events
+                    : [];
+                const candidates = (Array.isArray(payload.candidates) ? payload.candidates : [])
+                    .map(item => ({
+                        ...item,
+                        action: item.action === 'merge' ? 'merge' : 'create',
+                        related_memory_ids: Array.isArray(item.related_memory_ids) ? item.related_memory_ids : [],
+                        source_message_ids: Array.isArray(item.source_message_ids) ? item.source_message_ids : [],
+                        source_seqs: Array.isArray(item.source_seqs) ? item.source_seqs : [],
+                        star_emotions: Array.isArray(item.star_emotions) ? item.star_emotions : [],
+                        moon_emotions: Array.isArray(item.moon_emotions) ? item.moon_emotions : [],
+                        star_impressions: Array.isArray(item.star_impressions) ? item.star_impressions : [],
+                        moon_impressions: Array.isArray(item.moon_impressions) ? item.moon_impressions : [],
+                        _occurredInput: eventDateTimeInputValue(item.occurred_at, date),
+                        _relatedInput: (item.related_memory_ids || []).join(', '),
+                    }));
+
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:305;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+                const panel = document.createElement('div');
+                panel.style.cssText = 'background:var(--surface);border-radius:14px;padding:18px;width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;gap:12px;';
+
+                const heading = document.createElement('div');
+                heading.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:12px;';
+                const titleWrap = document.createElement('div');
+                const title = document.createElement('h3');
+                title.textContent = '🧭 确认今日事件';
+                title.style.cssText = 'font-size:16px;color:var(--text);margin:0 0 4px;';
+                const subtitle = document.createElement('div');
+                subtitle.textContent = `${date} · ${payload.model_info?.model || 'Agent池'} · 可编辑、删除或新增`;
+                subtitle.style.cssText = 'font-size:12px;color:var(--text2);';
+                titleWrap.appendChild(title);
+                titleWrap.appendChild(subtitle);
+                heading.appendChild(titleWrap);
+
+                const list = document.createElement('div');
+                list.style.cssText = 'overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:3px;';
+
+                const footer = document.createElement('div');
+                footer.style.cssText = 'display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;';
+                const addBtn = document.createElement('button');
+                addBtn.className = 'small-btn';
+                addBtn.textContent = '＋ 新增事件';
+
+                const footerRight = document.createElement('div');
+                footerRight.style.cssText = 'display:flex;gap:8px;';
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'small-btn';
+                cancelBtn.textContent = '稍后处理';
+                const confirmBtn = document.createElement('button');
+                confirmBtn.textContent = '确认写入并继续';
+                confirmBtn.style.cssText = 'background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;';
+                footerRight.appendChild(cancelBtn);
+                footerRight.appendChild(confirmBtn);
+                footer.appendChild(addBtn);
+                footer.appendChild(footerRight);
+
+                function makeField(labelText, element) {
+                    const wrap = document.createElement('label');
+                    wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2);';
+                    const label = document.createElement('span');
+                    label.textContent = labelText;
+                    wrap.appendChild(label);
+                    wrap.appendChild(element);
+                    return wrap;
+                }
+
+                function styleInput(element) {
+                    element.style.cssText = 'width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;outline:none;font-family:inherit;';
+                    return element;
+                }
+
+                function makeTagGroup(candidate, key, labelText, options) {
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;';
+                    const label = document.createElement('div');
+                    label.textContent = labelText + '（最多3个）';
+                    label.style.cssText = 'font-size:12px;color:var(--text2);';
+                    const chips = document.createElement('div');
+                    chips.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;';
+                    options.forEach(option => {
+                        const active = candidate[key].includes(option);
+                        const chip = document.createElement('button');
+                        chip.type = 'button';
+                        chip.textContent = option;
+                        chip.style.cssText = active
+                            ? 'border:1px solid var(--accent);background:var(--accent);color:white;border-radius:14px;padding:4px 9px;font-size:12px;cursor:pointer;'
+                            : 'border:1px solid var(--border);background:var(--surface2);color:var(--text2);border-radius:14px;padding:4px 9px;font-size:12px;cursor:pointer;';
+                        chip.onclick = () => {
+                            if (active) {
+                                candidate[key] = candidate[key].filter(item => item !== option);
+                            } else if (candidate[key].length < 3) {
+                                candidate[key].push(option);
+                            } else {
+                                alert('每组最多选择3个标签');
+                                return;
+                            }
+                            renderCandidates();
+                        };
+                        chips.appendChild(chip);
+                    });
+                    wrap.appendChild(label);
+                    wrap.appendChild(chips);
+                    return wrap;
+                }
+
+                function renderCandidates() {
+                    list.innerHTML = '';
+                    if (candidates.length === 0) {
+                        const empty = document.createElement('div');
+                        empty.textContent = 'Agent没有提取到事件。可以手动新增，或直接确认今天没有需要写入的事件。';
+                        empty.style.cssText = 'padding:28px 12px;text-align:center;color:var(--text2);font-size:13px;border:1px dashed var(--border);border-radius:10px;';
+                        list.appendChild(empty);
+                        return;
+                    }
+
+                    candidates.forEach((candidate, index) => {
+                        const card = document.createElement('div');
+                        card.style.cssText = 'border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface2);display:flex;flex-direction:column;gap:10px;';
+
+                        const cardHead = document.createElement('div');
+                        cardHead.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
+                        const number = document.createElement('strong');
+                        number.textContent = `事件 ${index + 1}`;
+                        number.style.cssText = 'font-size:13px;color:var(--text);';
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'small-btn danger';
+                        removeBtn.textContent = '删除';
+                        removeBtn.onclick = () => {
+                            candidates.splice(index, 1);
+                            renderCandidates();
+                        };
+                        cardHead.appendChild(number);
+                        cardHead.appendChild(removeBtn);
+
+                        const routeRow = document.createElement('div');
+                        routeRow.style.cssText = 'display:grid;grid-template-columns:minmax(110px,0.7fr) minmax(180px,1.8fr);gap:8px;';
+                        const actionSelect = styleInput(document.createElement('select'));
+                        [['create', '新建事件线'], ['merge', '续接已有事件线']].forEach(([value, text]) => {
+                            const option = document.createElement('option');
+                            option.value = value;
+                            option.textContent = text;
+                            actionSelect.appendChild(option);
+                        });
+                        actionSelect.value = candidate.action;
+
+                        const eventSelect = styleInput(document.createElement('select'));
+                        const blankOption = document.createElement('option');
+                        blankOption.value = '';
+                        blankOption.textContent = '请选择已有事件线';
+                        eventSelect.appendChild(blankOption);
+                        existingEvents.forEach(event => {
+                            const option = document.createElement('option');
+                            option.value = String(event.id);
+                            option.textContent = `#${event.id} ${event.title}`;
+                            eventSelect.appendChild(option);
+                        });
+                        eventSelect.value = candidate.event_id ? String(candidate.event_id) : '';
+                        eventSelect.disabled = candidate.action !== 'merge';
+
+                        actionSelect.onchange = () => {
+                            candidate.action = actionSelect.value;
+                            if (candidate.action === 'merge' && !candidate.event_id && existingEvents[0]) {
+                                candidate.event_id = Number(existingEvents[0].id);
+                            }
+                            renderCandidates();
+                        };
+                        eventSelect.onchange = () => {
+                            candidate.event_id = eventSelect.value ? Number(eventSelect.value) : null;
+                            const selected = existingEvents.find(event => Number(event.id) === candidate.event_id);
+                            if (selected && !candidate.title.trim()) candidate.title = selected.title || '';
+                        };
+                        routeRow.appendChild(makeField('处理方式', actionSelect));
+                        routeRow.appendChild(makeField('目标事件线', eventSelect));
+
+                        const titleInput = styleInput(document.createElement('input'));
+                        titleInput.value = candidate.title || '';
+                        titleInput.oninput = () => { candidate.title = titleInput.value; };
+
+                        const summaryInput = styleInput(document.createElement('textarea'));
+                        summaryInput.rows = 3;
+                        summaryInput.value = candidate.summary || '';
+                        summaryInput.oninput = () => { candidate.summary = summaryInput.value; };
+
+                        const contentInput = styleInput(document.createElement('textarea'));
+                        contentInput.rows = 4;
+                        contentInput.value = candidate.content || '';
+                        contentInput.oninput = () => { candidate.content = contentInput.value; };
+
+                        const metaRow = document.createElement('div');
+                        metaRow.style.cssText = 'display:grid;grid-template-columns:minmax(170px,1fr) minmax(170px,1fr);gap:8px;';
+                        const occurredInput = styleInput(document.createElement('input'));
+                        occurredInput.type = 'datetime-local';
+                        occurredInput.value = candidate._occurredInput;
+                        occurredInput.oninput = () => { candidate._occurredInput = occurredInput.value; };
+                        const relatedInput = styleInput(document.createElement('input'));
+                        relatedInput.value = candidate._relatedInput;
+                        relatedInput.placeholder = '例如：33, 55';
+                        relatedInput.oninput = () => { candidate._relatedInput = relatedInput.value; };
+                        metaRow.appendChild(makeField('发生时间', occurredInput));
+                        metaRow.appendChild(makeField('相关核心记忆ID', relatedInput));
+
+                        const source = document.createElement('div');
+                        source.textContent = candidate.source_seqs.length
+                            ? '来源消息：' + candidate.source_seqs.map(seq => '#' + seq).join('、')
+                            : '来源消息：未指定';
+                        source.style.cssText = 'font-size:11px;color:var(--text2);';
+
+                        card.appendChild(cardHead);
+                        card.appendChild(routeRow);
+                        card.appendChild(makeField('事件线标题', titleInput));
+                        card.appendChild(makeField('事件线当前结论', summaryInput));
+                        card.appendChild(makeField('今日节点内容', contentInput));
+                        card.appendChild(metaRow);
+                        card.appendChild(makeTagGroup(candidate, 'star_emotions', '星语情绪', EVENT_EMOTION_OPTIONS));
+                        card.appendChild(makeTagGroup(candidate, 'moon_emotions', '听月情绪', EVENT_EMOTION_OPTIONS));
+                        card.appendChild(makeTagGroup(candidate, 'star_impressions', '星语印象', EVENT_IMPRESSION_OPTIONS));
+                        card.appendChild(makeTagGroup(candidate, 'moon_impressions', '听月印象', EVENT_IMPRESSION_OPTIONS));
+                        card.appendChild(source);
+                        list.appendChild(card);
+                    });
+                }
+
+                addBtn.onclick = () => {
+                    candidates.push({
+                        action: 'create', event_id: null, title: '', summary: '', content: '',
+                        occurred_at: date + 'T12:00:00+08:00', _occurredInput: date + 'T12:00',
+                        related_memory_ids: [], _relatedInput: '', source_message_ids: [], source_seqs: [],
+                        star_emotions: [], moon_emotions: [], star_impressions: [], moon_impressions: [],
+                    });
+                    renderCandidates();
+                    list.scrollTop = list.scrollHeight;
+                };
+
+                cancelBtn.onclick = () => {
+                    overlay.remove();
+                    resolve(null);
+                };
+
+                confirmBtn.onclick = () => {
+                    const reviewed = [];
+                    for (const candidate of candidates) {
+                        const title = String(candidate.title || '').trim();
+                        const content = String(candidate.content || '').trim();
+                        if (!title || !content) {
+                            alert('每条事件都需要标题和今日节点内容');
+                            return;
+                        }
+                        if (candidate.action === 'merge' && !candidate.event_id) {
+                            alert(`事件“${title}”尚未选择要续接的事件线`);
+                            return;
+                        }
+                        const occurred = candidate._occurredInput;
+                        if (!occurred) {
+                            alert(`事件“${title}”尚未填写发生时间`);
+                            return;
+                        }
+                        reviewed.push({
+                            action: candidate.action,
+                            event_id: candidate.action === 'merge' ? Number(candidate.event_id) : null,
+                            title,
+                            summary: String(candidate.summary || '').trim() || content,
+                            content,
+                            occurred_at: new Date(occurred + ':00+08:00').toISOString(),
+                            related_memory_ids: String(candidate._relatedInput || '')
+                                .split(/[，,\s]+/)
+                                .map(value => Number(value))
+                                .filter(value => Number.isInteger(value) && value > 0),
+                            source_message_ids: candidate.source_message_ids,
+                            star_emotions: candidate.star_emotions,
+                            moon_emotions: candidate.moon_emotions,
+                            star_impressions: candidate.star_impressions,
+                            moon_impressions: candidate.moon_impressions,
+                        });
+                    }
+                    overlay.remove();
+                    resolve(reviewed);
+                };
+
+                panel.appendChild(heading);
+                panel.appendChild(list);
+                panel.appendChild(footer);
+                overlay.appendChild(panel);
+                document.body.appendChild(overlay);
+                renderCandidates();
+            });
+        }
+
+        async function saveReviewedEvents(date, events) {
+            const gateway = getSetting('gateway');
+            const res = await fetch(gateway + '/api/events/commit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({date, events}),
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok || result.success === false) {
+                throw new Error(result.error || '事件写入失败');
+            }
+            return result;
+        }
+
+        async function reviewAndSaveEvents(date, diary) {
+            try {
+                showStatus('正在由 Agent 池提取今日事件…', 600000);
+                const payload = await requestEventCandidates(date, diary);
+                showStatus(`已提取 ${payload.candidates?.length || 0} 条事件候选，请确认`, 5000);
+                const reviewed = await showEventConfirmDialog(payload);
+                if (!reviewed) {
+                    showStatus('事件尚未确认，已暂停后续归档', 5000);
+                    return false;
+                }
+                showStatus('正在写入事件库…', 600000);
+                const saved = await saveReviewedEvents(date, reviewed);
+                if (Array.isArray(saved.warnings) && saved.warnings.length > 0) {
+                    showStatus(`事件节点已写入；${saved.warnings.length} 条情绪地标待补`, 8000);
+                } else {
+                    showStatus(`事件库已写入 ${saved.saved?.length || 0} 条节点 ✓`, 5000);
+                }
+                return true;
+            } catch (error) {
+                console.error('晚间事件流程失败:', error);
+                showStatus('⚠ ' + error.message, 8000);
+                alert('事件流程未完成：' + error.message + '\n\n聊天记录尚未归档，可以稍后重试。');
+                return false;
+            }
+        }
+
+        async function runAfterDiarySavedFlow(date, diary) {
+            const eventsSaved = await reviewAndSaveEvents(date, diary);
+            if (!eventsSaved) return;
+
             if (confirm('日记已写入。是否导出当天聊天记录 TXT？')) {
                 await exportTxt(date);
             }
