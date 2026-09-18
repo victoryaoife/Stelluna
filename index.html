@@ -4515,6 +4515,7 @@
                     {regex: /&lt;&lt;记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/记忆&gt;&gt;/g, icon: '📝', label: '记忆已创建'},
                     {regex: /&lt;&lt;改记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/改记忆&gt;&gt;/g, icon: '📝', label: '记忆已更新'},
                     {regex: /&lt;&lt;编辑记忆&gt;&gt;([\s\S]*?)&lt;&lt;\/编辑记忆&gt;&gt;/g, icon: '✂️', label: '记忆已编辑'},
+                    {regex: /&lt;&lt;编辑事件&gt;&gt;([\s\S]*?)&lt;&lt;\/编辑事件&gt;&gt;/g, icon: '🧭', label: '事件库已编辑'},
                     {regex: /&lt;&lt;日记&gt;&gt;([\s\S]*?)&lt;&lt;\/日记&gt;&gt;/g, icon: '📝', label: '日记已写入'},
                 ];
                 for (const tag of tagTypes) {
@@ -7681,13 +7682,17 @@
                     const sepIdx = val.indexOf('|');
                     if (sepIdx > 0) {
                         const category = val.slice(0, sepIdx).trim();
-                        const memContent = val.slice(sepIdx + 1).trim();
-                        if (category && memContent) {
+                        const secondSepIdx = val.indexOf('|', sepIdx + 1);
+                        const title = secondSepIdx > sepIdx
+                            ? val.slice(sepIdx + 1, secondSepIdx).trim()
+                            : category;
+                        const memContent = val.slice(secondSepIdx > sepIdx ? secondSepIdx + 1 : sepIdx + 1).trim();
+                        if (category && title && memContent) {
                             try {
                                 await fetch(gateway + '/api/memory/core', {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({category, title: category, content: memContent}),
+                                    body: JSON.stringify({category, title, content: memContent}),
                                 });
                                 showStatus('记忆已创建 ✓');
                             } catch (e) {
@@ -7809,6 +7814,65 @@
                     console.error('锚点编辑记忆失败:', e);
                     finishProgressTask(editTaskId, '✂️ 记忆 #' + editId + ' 未完成');
                     showStatus('⚠ 编辑记忆失败: ' + e.message, 5000);
+                }
+            }
+
+            const eventEditRegex = /<<编辑事件>>([\s\S]*?)<<\/编辑事件>>/g;
+            const eventEditMatches = Array.from(cleaned.matchAll(eventEditRegex));
+
+            for (const eventMatch of eventEditMatches) {
+                const raw = eventMatch[1];
+                const targetMatch = raw.match(/^target\s*:\s*([a-z_]+)\s*$/im);
+                const idMatch = raw.match(/^id\s*:\s*(\d+)\s*$/im);
+                const opMatch = raw.match(/^op\s*:\s*([a-z_]+)\s*$/im);
+                const dataMatch = raw.match(/---\s*data\s*---\s*\n([\s\S]*)$/i);
+
+                if (!targetMatch || !opMatch || !dataMatch) {
+                    showStatus('⚠ 编辑事件标记缺少 target、op 或 data', 5000);
+                    continue;
+                }
+
+                let eventData;
+                try {
+                    eventData = JSON.parse(dataMatch[1].trim());
+                } catch (e) {
+                    showStatus('⚠ 编辑事件标记的 data 不是有效 JSON', 5000);
+                    continue;
+                }
+
+                const editTarget = targetMatch[1].toLowerCase();
+                const editOp = opMatch[1].toLowerCase();
+                const editId = idMatch ? parseInt(idMatch[1]) : null;
+                const eventTaskId = 'event-edit-' + editTarget + '-' + (editId || Date.now());
+                startProgressTask(eventTaskId, '🧭 正在编辑事件库…');
+
+                try {
+                    const res = await fetch(gateway + '/api/events/edit', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            target: editTarget,
+                            id: editId,
+                            op: editOp,
+                            data: eventData,
+                        }),
+                    });
+                    const result = await res.json().catch(() => ({}));
+                    if (!res.ok || !result.success) {
+                        throw new Error(result.error || ('HTTP ' + res.status));
+                    }
+                    const resultId = result.event_id || result.node_id || result.id || '';
+                    finishProgressTask(eventTaskId, '🧭 事件库已编辑 ✓');
+                    showStatus('事件库已编辑 ✓');
+                    cleaned = cleaned.replace(
+                        eventMatch[0],
+                        '<<编辑事件>>目标：' + editTarget + '\n操作：' + editOp
+                        + (resultId ? '\nID：' + resultId : '') + '<</编辑事件>>'
+                    );
+                } catch (e) {
+                    console.error('编辑事件库失败:', e);
+                    finishProgressTask(eventTaskId, '🧭 事件库编辑失败');
+                    showStatus('⚠ 事件库编辑失败: ' + e.message, 8000);
                 }
             }
 
