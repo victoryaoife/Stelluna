@@ -7208,6 +7208,12 @@
                 const existingEvents = Array.isArray(payload.existing_events)
                     ? payload.existing_events
                     : [];
+                const memoryOptions = Array.isArray(payload.memory_options)
+                    ? payload.memory_options
+                    : [];
+                const memoryById = new Map(
+                    memoryOptions.map(memory => [Number(memory.id), memory])
+                );
                 const candidates = (Array.isArray(payload.candidates) ? payload.candidates : [])
                     .map(item => ({
                         ...item,
@@ -7405,9 +7411,33 @@
                         const relatedInput = styleInput(document.createElement('input'));
                         relatedInput.value = candidate._relatedInput;
                         relatedInput.placeholder = '例如：33, 55';
-                        relatedInput.oninput = () => { candidate._relatedInput = relatedInput.value; };
+                        const relatedHint = document.createElement('div');
+                        relatedHint.style.cssText = 'font-size:11px;line-height:1.5;color:var(--text2);padding-top:2px;';
+                        const renderRelatedHint = () => {
+                            const ids = String(candidate._relatedInput || '')
+                                .split(/[，,\s]+/)
+                                .map(value => Number(value))
+                                .filter(value => Number.isInteger(value) && value > 0);
+                            if (ids.length === 0) {
+                                relatedHint.textContent = '未关联核心记忆';
+                                return;
+                            }
+                            relatedHint.textContent = ids.map(id => {
+                                const memory = memoryById.get(id);
+                                return memory
+                                    ? `#${id} [${memory.category}] ${memory.title}`
+                                    : `#${id} 未找到对应记忆`;
+                            }).join(' ｜ ');
+                        };
+                        relatedInput.oninput = () => {
+                            candidate._relatedInput = relatedInput.value;
+                            renderRelatedHint();
+                        };
+                        renderRelatedHint();
                         metaRow.appendChild(makeField('发生时间', occurredInput));
-                        metaRow.appendChild(makeField('相关核心记忆ID', relatedInput));
+                        const relatedField = makeField('相关核心记忆', relatedInput);
+                        relatedField.appendChild(relatedHint);
+                        metaRow.appendChild(relatedField);
 
                         const source = document.createElement('div');
                         source.textContent = candidate.source_seqs.length
@@ -7510,25 +7540,41 @@
         }
 
         async function reviewAndSaveEvents(date, diary) {
+            let progressId = 'event-extract';
             try {
-                showStatus('正在由 Agent 池提取今日事件…', 600000);
+                startProgressTask(progressId, '🧭 Agent 正在整理今日事件…');
                 const payload = await requestEventCandidates(date, diary);
-                showStatus(`已提取 ${payload.candidates?.length || 0} 条事件候选，请确认`, 5000);
+                finishProgressTask(
+                    progressId,
+                    `🧭 已整理 ${payload.candidates?.length || 0} 条事件候选 ✓`
+                );
+                progressId = null;
                 const reviewed = await showEventConfirmDialog(payload);
                 if (!reviewed) {
                     showStatus('事件尚未确认，已暂停后续归档', 5000);
                     return false;
                 }
-                showStatus('正在写入事件库…', 600000);
+                progressId = 'event-commit';
+                startProgressTask(progressId, '🗂️ 正在写入事件库…');
                 const saved = await saveReviewedEvents(date, reviewed);
                 if (Array.isArray(saved.warnings) && saved.warnings.length > 0) {
-                    showStatus(`事件节点已写入；${saved.warnings.length} 条情绪地标待补`, 8000);
+                    finishProgressTask(
+                        progressId,
+                        `🗂️ 事件已写入；${saved.warnings.length} 条情绪地标待补`
+                    );
                 } else {
-                    showStatus(`事件库已写入 ${saved.saved?.length || 0} 条节点 ✓`, 5000);
+                    finishProgressTask(
+                        progressId,
+                        `🗂️ 已写入 ${saved.saved?.length || 0} 条事件节点 ✓`
+                    );
                 }
+                progressId = null;
                 return true;
             } catch (error) {
                 console.error('晚间事件流程失败:', error);
+                if (progressId) {
+                    finishProgressTask(progressId, '⚠ 事件流程未完成');
+                }
                 showStatus('⚠ ' + error.message, 8000);
                 alert('事件流程未完成：' + error.message + '\n\n聊天记录尚未归档，可以稍后重试。');
                 return false;
