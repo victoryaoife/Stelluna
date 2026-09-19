@@ -1939,6 +1939,10 @@
                     <i class="ri-download-cloud-line"></i>
                     <span>拉取</span>
                 </div>
+                <div class="record-card" onclick="organizeEventsByDate()">
+                    <i class="ri-node-tree"></i>
+                    <span>事件整理</span>
+                </div>
                 <div class="record-card" onclick="showPanel('settings')">
                     <i class="ri-sound-module-fill"></i>
                     <span>设置</span>
@@ -2351,6 +2355,7 @@
         let modelPools = {main: [], vice: [], proactive: [], vision: [], agent: []};
         let modelRegistryCache = null;
         let isRegistrySyncing = false;
+        let isManualEventReviewRunning = false;
         let proactiveTimer = null;
         let isFirstAfterArchive = true;
         let currentLocation = null;
@@ -7261,11 +7266,11 @@
             '自我保护', '边界感', '好学', '倔强', '护短', '犯蠢', '掌控',
         ];
 
-        function buildEventExtractionMessages(date) {
-            return messages
+        function buildEventExtractionMessagesFrom(sourceMessages, date) {
+            return sourceMessages
                 .map(message => {
                     const version = message.versions
-                        ? message.versions[message.activeVersion || 0]
+                        ? message.versions[message.activeVersion ?? message.active_version ?? 0]
                         : message;
                     return {
                         role: message.role,
@@ -7281,7 +7286,11 @@
                 });
         }
 
-        async function requestEventCandidates(date, diary) {
+        function buildEventExtractionMessages(date) {
+            return buildEventExtractionMessagesFrom(messages, date);
+        }
+
+        async function requestEventCandidates(date, diary, eventMessages = null) {
             const gateway = getSetting('gateway');
             const res = await fetch(gateway + '/api/events/extract', {
                 method: 'POST',
@@ -7289,7 +7298,9 @@
                 body: JSON.stringify({
                     date,
                     diary,
-                    messages: buildEventExtractionMessages(date),
+                    messages: Array.isArray(eventMessages)
+                        ? eventMessages
+                        : buildEventExtractionMessages(date),
                     config: buildConfig(),
                 }),
             });
@@ -7350,7 +7361,7 @@
                 heading.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:12px;';
                 const titleWrap = document.createElement('div');
                 const title = document.createElement('h3');
-                title.textContent = '🧭 确认今日事件';
+                title.textContent = '🧭 确认事件';
                 title.style.cssText = 'font-size:16px;color:var(--text);margin:0 0 4px;';
                 const subtitle = document.createElement('div');
                 subtitle.textContent = `${date} · ${payload.model_info?.model || 'Agent池'} · 可编辑、删除或新增`;
@@ -7657,11 +7668,11 @@
             return result;
         }
 
-        async function reviewAndSaveEvents(date, diary) {
+        async function reviewAndSaveEvents(date, diary, eventMessages = null, options = {}) {
             let progressId = 'event-extract';
             try {
-                startProgressTask(progressId, '🧭 Agent 正在整理今日事件…');
-                const payload = await requestEventCandidates(date, diary);
+                startProgressTask(progressId, `🧭 Agent 正在整理 ${date} 的事件…`);
+                const payload = await requestEventCandidates(date, diary, eventMessages);
                 finishProgressTask(
                     progressId,
                     `🧭 已整理 ${payload.candidates?.length || 0} 条事件候选${payload.skipped_count ? `，跳过 ${payload.skipped_count} 条` : ''} ✓`
@@ -7669,7 +7680,12 @@
                 progressId = null;
                 const reviewed = await showEventConfirmDialog(payload);
                 if (!reviewed) {
-                    showStatus('事件尚未确认，已暂停后续归档', 5000);
+                    showStatus(
+                        options.standalone
+                            ? '事件尚未确认，本次整理已暂停'
+                            : '事件尚未确认，已暂停后续归档',
+                        5000
+                    );
                     return false;
                 }
                 progressId = 'event-commit';
@@ -7694,8 +7710,94 @@
                     finishProgressTask(progressId, '⚠ 事件流程未完成');
                 }
                 showStatus('⚠ ' + error.message, 8000);
-                alert('事件流程未完成：' + error.message + '\n\n聊天记录尚未归档，可以稍后重试。');
+                alert(
+                    options.standalone
+                        ? '事件整理未完成：' + error.message
+                        : '事件流程未完成：' + error.message + '\n\n聊天记录尚未归档，可以稍后重试。'
+                );
                 return false;
+            }
+        }
+
+        async function organizeEventsByDate() {
+            const gateway = getSetting('gateway');
+            if (!gateway) {
+                alert('请先设置网关地址');
+                return;
+            }
+            if (isGenerating || isManualEventReviewRunning) {
+                showStatus('当前已有生成或事件整理任务进行中', 5000);
+                return;
+            }
+
+            const defaultDate = new Date().toLocaleDateString(
+                'en-CA',
+                {timeZone: 'Asia/Shanghai'}
+            );
+            const date = prompt('整理哪一天的事件？（YYYY-MM-DD）', defaultDate);
+            if (date === null) return;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                showStatus('⚠ 日期格式不正确', 5000);
+                return;
+            }
+
+            const sourceProgressId = 'event-source-load';
+            isManualEventReviewRunning = true;
+            try {
+                startProgressTask(sourceProgressId, `📚 正在读取 ${date} 的聊天与日记…`);
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const [historyRes, diaryRes] = await Promise.all([
+                    fetch(
+                        `${gateway}/api/chat/history?date=${encodeURIComponent(date)}&timezone=${encodeURIComponent(timezone)}`
+                    ),
+                    fetch(gateway + '/api/memory/diaries/' + encodeURIComponent(date)),
+                ]);
+
+                const historyData = await historyRes.json().catch(() => ({}));
+                if (!historyRes.ok) {
+                    throw new Error(historyData.error || `聊天记录读取失败（HTTP ${historyRes.status}）`);
+                }
+                if (!Array.isArray(historyData.messages)) {
+                    throw new Error('聊天记录响应格式不正确');
+                }
+
+                const sourceMessages = historyData.messages
+                    .filter(message => isPersistableChatMessage(message.role, message.content))
+                    .map(restoreWorkerHistoryMessage);
+                const eventMessages = buildEventExtractionMessagesFrom(sourceMessages, date);
+                if (eventMessages.length === 0) {
+                    throw new Error(`${date} 没有可整理的聊天消息`);
+                }
+
+                let diary = null;
+                if (diaryRes.ok) {
+                    diary = await diaryRes.json().catch(() => null);
+                } else if (diaryRes.status !== 404) {
+                    const diaryError = await diaryRes.json().catch(() => ({}));
+                    throw new Error(diaryError.error || `日记读取失败（HTTP ${diaryRes.status}）`);
+                }
+
+                finishProgressTask(
+                    sourceProgressId,
+                    `📚 已读取 ${eventMessages.length} 条消息${diary?.content ? '和当日日记' : '；当日无日记'} ✓`
+                );
+
+                const saved = await reviewAndSaveEvents(
+                    date,
+                    diary,
+                    eventMessages,
+                    {standalone: true}
+                );
+                if (saved) {
+                    showStatus(`${date} 的事件整理完成 ✓`, 6000);
+                }
+            } catch (error) {
+                console.error('手动事件整理失败:', error);
+                finishProgressTask(sourceProgressId, '⚠ 事件资料读取失败');
+                showStatus('⚠ ' + error.message, 8000);
+                alert('事件整理未开始：' + error.message);
+            } finally {
+                isManualEventReviewRunning = false;
             }
         }
 
