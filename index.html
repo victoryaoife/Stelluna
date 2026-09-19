@@ -7690,12 +7690,12 @@
             });
         }
 
-        async function saveReviewedEvents(date, events) {
+        async function saveReviewedEvents(date, events, commitId) {
             const gateway = getSetting('gateway');
             const res = await fetch(gateway + '/api/events/commit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({date, events}),
+                body: JSON.stringify({date, events, commit_id: commitId}),
             });
             const result = await res.json().catch(() => ({}));
             if (!res.ok || result.success === false) {
@@ -7726,7 +7726,8 @@
                 }
                 progressId = 'event-commit';
                 startProgressTask(progressId, '🗂️ 正在写入事件库…');
-                const saved = await saveReviewedEvents(date, reviewed);
+                const commitId = payload.commit_id || crypto.randomUUID();
+                const saved = await saveReviewedEvents(date, reviewed, commitId);
                 const savedCount = Array.isArray(saved.saved) ? saved.saved.length : 0;
                 const reviewedCount = reviewed.length;
                 if (savedCount !== reviewedCount) {
@@ -7735,6 +7736,11 @@
                         `⚠ 已确认 ${reviewedCount} 条，实际写入 ${savedCount} 条`
                     );
                     alert(`事件数量不一致：确认 ${reviewedCount} 条，实际写入 ${savedCount} 条。请保留当前页面并检查日志。`);
+                } else if (Number(saved.deduplicated_count) > 0) {
+                    finishProgressTask(
+                        progressId,
+                        `🗂️ 已确认 ${savedCount} 条，其中 ${saved.deduplicated_count} 条已写入过、未重复新建 ✓`
+                    );
                 } else if (Array.isArray(saved.warnings) && saved.warnings.length > 0) {
                     finishProgressTask(
                         progressId,
