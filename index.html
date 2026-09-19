@@ -2977,9 +2977,11 @@
                 favoriteModels = JSON.parse(getSetting('favoriteModels', '[]'));
                 if (favoriteModels.length > 0 && typeof favoriteModels[0] === 'string') {
                     favoriteModels = favoriteModels.map(m => ({pid: 0, pname: providers[0]?.name || '默认', model: m}));
-                    setSetting('favoriteModels', JSON.stringify(favoriteModels));
                 }
             } catch {favoriteModels = [];}
+
+            normalizeFavoriteModelsByProvider();
+            setSetting('favoriteModels', JSON.stringify(favoriteModels));
 
 
             // 归档状态
@@ -3431,6 +3433,18 @@
                 );
             }
 
+            const convertedProviderNames = convertedProviders.map(
+                provider => provider.name
+            );
+            if (
+                new Set(convertedProviderNames).size !==
+                convertedProviderNames.length
+            ) {
+                throw new Error(
+                    '注册表中存在完全重名的供应商，已保留当前本地配置'
+                );
+            }
+
             providers = convertedProviders;
 
             const previousIndex = providers.findIndex(
@@ -3471,6 +3485,8 @@
                     };
                 })
                 .filter(Boolean);
+
+            normalizeFavoriteModelsByProvider();
 
             const registryPools =
                 registry.pools &&
@@ -3974,11 +3990,55 @@
         }
 
         // ====== 供应商管理 ======
+        function normalizeFavoriteModelsByProvider() {
+            const normalized = [];
+            const seen = new Set();
+
+            for (const favorite of Array.isArray(favoriteModels) ? favoriteModels : []) {
+                const model = String(favorite?.model || '').trim();
+                let pname = String(favorite?.pname || '').trim();
+                let pid = providers.findIndex(provider => provider.name === pname);
+
+                // 只为没有供应商名的旧数据兼容一次数组下标；
+                // 已有 pname 却找不到时绝不能再用旧 pid 猜另一个供应商。
+                if (pid < 0 && !pname) {
+                    const legacyPid = Number(favorite?.pid);
+                    if (Number.isInteger(legacyPid) && providers[legacyPid]) {
+                        pid = legacyPid;
+                        pname = providers[legacyPid].name;
+                    }
+                }
+
+                if (pid < 0 || !pname || !model) continue;
+
+                const identity = `${pname}\u0000${model}`;
+                if (seen.has(identity)) continue;
+                seen.add(identity);
+                normalized.push({pid, pname, model});
+            }
+
+            favoriteModels = normalized;
+        }
+
+        function hasDuplicateProviderName(name, ignoredIndex = -1) {
+            return providers.some(
+                (provider, index) =>
+                    index !== ignoredIndex && provider.name === name
+            );
+        }
+
+        function persistRegistrySelections() {
+            normalizeFavoriteModelsByProvider();
+            setSetting('favoriteModels', JSON.stringify(favoriteModels));
+            setSetting('modelPools', JSON.stringify(modelPools));
+        }
+
         function addProvider() {
             const name = document.getElementById('new-provider-name').value.trim();
             const url = document.getElementById('new-provider-url').value.trim();
             const key = document.getElementById('new-provider-key').value.trim();
             if (!name || !url || !key) {alert('请填写完整'); return;}
+            if (hasDuplicateProviderName(name)) {alert('供应商名称不能完全重复'); return;}
             providers.push({name, url, key});
             setSetting('providers', JSON.stringify(providers));
             document.getElementById('new-provider-name').value = '';
@@ -3989,7 +4049,24 @@
         }
 
         function removeProvider(index) {
+            const removedProvider = providers[index];
+            if (!removedProvider) return;
             providers.splice(index, 1);
+            const sameNameStillExists = providers.some(
+                provider => provider.name === removedProvider.name
+            );
+            if (!sameNameStillExists) {
+                favoriteModels = favoriteModels.filter(
+                    favorite => favorite.pname !== removedProvider.name
+                );
+                for (const poolName of Object.keys(modelPools)) {
+                    if (!Array.isArray(modelPools[poolName])) continue;
+                    modelPools[poolName] = modelPools[poolName].filter(
+                        item => item.pname !== removedProvider.name
+                    );
+                }
+            }
+            persistRegistrySelections();
             if (activeProvider >= providers.length) activeProvider = Math.max(0, providers.length - 1);
             setSetting('providers', JSON.stringify(providers));
             setSetting('activeProvider', String(activeProvider));
@@ -4020,7 +4097,25 @@
             const url = document.getElementById('edit-prov-url-' + index).value.trim();
             const key = document.getElementById('edit-prov-key-' + index).value.trim();
             if (!name || !url || !key) {alert('请填写完整'); return;}
+            if (hasDuplicateProviderName(name, index)) {alert('供应商名称不能完全重复'); return;}
+            const oldName = providers[index]?.name || '';
             providers[index] = {name, url, key};
+            if (oldName && oldName !== name) {
+                favoriteModels = favoriteModels.map(favorite =>
+                    favorite.pname === oldName
+                        ? {...favorite, pname: name, pid: index}
+                        : favorite
+                );
+                for (const poolName of Object.keys(modelPools)) {
+                    if (!Array.isArray(modelPools[poolName])) continue;
+                    modelPools[poolName] = modelPools[poolName].map(item =>
+                        item.pname === oldName
+                            ? {...item, pname: name}
+                            : item
+                    );
+                }
+            }
+            persistRegistrySelections();
             setSetting('providers', JSON.stringify(providers));
             renderProvidersList();
             updateProviderTags();
@@ -4125,7 +4220,12 @@
         function renderModelList(filter) {
             const list = document.getElementById('model-list');
             const kw = filter.toLowerCase();
-            const isFaved = m => favoriteModels.some(f => f.model === m && f.pid === activeProvider);
+            const active = getActiveProvider();
+            const isFaved = m => favoriteModels.some(
+                favorite =>
+                    favorite.model === m &&
+                    favorite.pname === active?.name
+            );
             const faved = allModels.filter(m => isFaved(m) && (!kw || m.toLowerCase().includes(kw)));
             const others = allModels.filter(m => !isFaved(m) && (!kw || m.toLowerCase().includes(kw)));
 
@@ -4158,12 +4258,21 @@
 
         function toggleFavorite(e, modelId) {
             e.stopPropagation();
-            const idx = favoriteModels.findIndex(f => f.model === modelId && f.pid === activeProvider);
+            const provider = getActiveProvider();
+            if (!provider) return;
+            const idx = favoriteModels.findIndex(
+                favorite =>
+                    favorite.model === modelId &&
+                    favorite.pname === provider.name
+            );
             if (idx >= 0) {
                 favoriteModels.splice(idx, 1);
             } else {
-                const p = providers[activeProvider];
-                favoriteModels.push({pid: activeProvider, pname: p ? p.name : '未知', model: modelId});
+                favoriteModels.push({
+                    pid: providers.findIndex(item => item.name === provider.name),
+                    pname: provider.name,
+                    model: modelId,
+                });
             }
             setSetting('favoriteModels', JSON.stringify(favoriteModels));
             renderModelList(document.querySelector('.model-search')?.value || '');
@@ -7206,6 +7315,7 @@
         function showEventConfirmDialog(payload) {
             return new Promise(resolve => {
                 const date = payload.date;
+                const skippedCount = Number(payload.skipped_count) || 0;
                 const existingEvents = Array.isArray(payload.existing_events)
                     ? payload.existing_events
                     : [];
@@ -7248,6 +7358,12 @@
                 titleWrap.appendChild(title);
                 titleWrap.appendChild(subtitle);
                 heading.appendChild(titleWrap);
+
+                const warningBanner = document.createElement('div');
+                if (skippedCount > 0) {
+                    warningBanner.textContent = `⚠ ${skippedCount} 条候选格式损坏或字段不完整，已跳过；其余事件仍可确认写入。`;
+                    warningBanner.style.cssText = 'font-size:12px;line-height:1.5;color:#f6c56f;background:rgba(246,197,111,0.10);border:1px solid rgba(246,197,111,0.28);border-radius:8px;padding:8px 10px;';
+                }
 
                 const list = document.createElement('div');
                 list.style.cssText = 'overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:3px;';
@@ -7518,6 +7634,7 @@
                 };
 
                 panel.appendChild(heading);
+                if (skippedCount > 0) panel.appendChild(warningBanner);
                 panel.appendChild(list);
                 panel.appendChild(footer);
                 overlay.appendChild(panel);
@@ -7547,7 +7664,7 @@
                 const payload = await requestEventCandidates(date, diary);
                 finishProgressTask(
                     progressId,
-                    `🧭 已整理 ${payload.candidates?.length || 0} 条事件候选 ✓`
+                    `🧭 已整理 ${payload.candidates?.length || 0} 条事件候选${payload.skipped_count ? `，跳过 ${payload.skipped_count} 条` : ''} ✓`
                 );
                 progressId = null;
                 const reviewed = await showEventConfirmDialog(payload);
