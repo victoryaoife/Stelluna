@@ -7355,7 +7355,7 @@
                 overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:305;display:flex;align-items:center;justify-content:center;padding:16px;';
 
                 const panel = document.createElement('div');
-                panel.style.cssText = 'background:var(--surface);border-radius:14px;padding:18px;width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;gap:12px;';
+                panel.style.cssText = 'background:var(--surface);border-radius:14px;padding:18px;width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;gap:12px;overflow:hidden;';
 
                 const heading = document.createElement('div');
                 heading.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:12px;';
@@ -7403,17 +7403,27 @@
                             item.appendChild(reason);
                         }
                         if (warning?.raw_excerpt) {
+                            const details = document.createElement('details');
+                            details.style.cssText = 'margin-top:5px;';
+                            const summary = document.createElement('summary');
+                            summary.textContent = '查看异常原文';
+                            summary.style.cssText = 'cursor:pointer;color:var(--text2);';
                             const excerpt = document.createElement('pre');
                             excerpt.textContent = String(warning.raw_excerpt);
-                            excerpt.style.cssText = 'margin:6px 0 0;padding:7px 8px;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:auto;background:rgba(0,0,0,0.14);border-radius:6px;color:var(--text);font:11px/1.45 monospace;';
-                            item.appendChild(excerpt);
+                            excerpt.style.cssText = 'margin:6px 0 0;padding:7px 8px;white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,0.14);border-radius:6px;color:var(--text);font:11px/1.45 monospace;';
+                            details.appendChild(summary);
+                            details.appendChild(excerpt);
+                            item.appendChild(details);
                         }
                         warningBanner.appendChild(item);
                     });
                 }
 
                 const list = document.createElement('div');
-                list.style.cssText = 'overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:3px;';
+                list.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+
+                const scrollBody = document.createElement('div');
+                scrollBody.style.cssText = 'min-height:0;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:3px;overscroll-behavior:contain;';
 
                 const footer = document.createElement('div');
                 footer.style.cssText = 'display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;';
@@ -7681,8 +7691,9 @@
                 };
 
                 panel.appendChild(heading);
-                if (skippedCount > 0) panel.appendChild(warningBanner);
-                panel.appendChild(list);
+                if (skippedCount > 0) scrollBody.appendChild(warningBanner);
+                scrollBody.appendChild(list);
+                panel.appendChild(scrollBody);
                 panel.appendChild(footer);
                 overlay.appendChild(panel);
                 document.body.appendChild(overlay);
