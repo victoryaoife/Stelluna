@@ -7324,6 +7324,9 @@
             return new Promise(resolve => {
                 const date = payload.date;
                 const skippedCount = Number(payload.skipped_count) || 0;
+                const extractionWarnings = Array.isArray(payload.warnings)
+                    ? payload.warnings
+                    : [];
                 const existingEvents = Array.isArray(payload.existing_events)
                     ? payload.existing_events
                     : [];
@@ -7369,8 +7372,44 @@
 
                 const warningBanner = document.createElement('div');
                 if (skippedCount > 0) {
-                    warningBanner.textContent = `⚠ ${skippedCount} 条候选格式损坏或字段不完整，已跳过；其余事件仍可确认写入。`;
                     warningBanner.style.cssText = 'font-size:12px;line-height:1.5;color:#f6c56f;background:rgba(246,197,111,0.10);border:1px solid rgba(246,197,111,0.28);border-radius:8px;padding:8px 10px;';
+                    const warningTitle = document.createElement('div');
+                    warningTitle.textContent = `⚠ ${skippedCount} 条候选格式损坏或字段不完整，已跳过；异常原文如下。`;
+                    warningTitle.style.cssText = 'font-weight:600;';
+                    warningBanner.appendChild(warningTitle);
+
+                    const warningLabels = {
+                        INVALID_JSON: 'JSON 无法解析',
+                        INVALID_EVENT_TYPE: '不是事件对象',
+                        MISSING_REQUIRED_FIELDS: '缺少标题或节点内容',
+                        INVALID_MERGE_TARGET: '续接目标无效',
+                    };
+                    extractionWarnings.forEach((warning, index) => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'margin-top:8px;padding-top:8px;border-top:1px solid rgba(246,197,111,0.22);';
+                        const itemTitle = document.createElement('div');
+                        const record = Number(warning?.record);
+                        const recordText = Number.isInteger(record) && record > 0
+                            ? `第 ${record} 行`
+                            : `异常 ${index + 1}`;
+                        itemTitle.textContent = `${recordText} · ${warningLabels[warning?.code] || warning?.code || '格式错误'}`;
+                        itemTitle.style.cssText = 'font-weight:600;';
+                        item.appendChild(itemTitle);
+
+                        if (warning?.message) {
+                            const reason = document.createElement('div');
+                            reason.textContent = String(warning.message);
+                            reason.style.cssText = 'margin-top:2px;opacity:0.9;word-break:break-word;';
+                            item.appendChild(reason);
+                        }
+                        if (warning?.raw_excerpt) {
+                            const excerpt = document.createElement('pre');
+                            excerpt.textContent = String(warning.raw_excerpt);
+                            excerpt.style.cssText = 'margin:6px 0 0;padding:7px 8px;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:auto;background:rgba(0,0,0,0.14);border-radius:6px;color:var(--text);font:11px/1.45 monospace;';
+                            item.appendChild(excerpt);
+                        }
+                        warningBanner.appendChild(item);
+                    });
                 }
 
                 const list = document.createElement('div');
@@ -7688,15 +7727,23 @@
                 progressId = 'event-commit';
                 startProgressTask(progressId, '🗂️ 正在写入事件库…');
                 const saved = await saveReviewedEvents(date, reviewed);
-                if (Array.isArray(saved.warnings) && saved.warnings.length > 0) {
+                const savedCount = Array.isArray(saved.saved) ? saved.saved.length : 0;
+                const reviewedCount = reviewed.length;
+                if (savedCount !== reviewedCount) {
                     finishProgressTask(
                         progressId,
-                        `🗂️ 事件已写入；${saved.warnings.length} 条情绪地标待补`
+                        `⚠ 已确认 ${reviewedCount} 条，实际写入 ${savedCount} 条`
+                    );
+                    alert(`事件数量不一致：确认 ${reviewedCount} 条，实际写入 ${savedCount} 条。请保留当前页面并检查日志。`);
+                } else if (Array.isArray(saved.warnings) && saved.warnings.length > 0) {
+                    finishProgressTask(
+                        progressId,
+                        `🗂️ 已写入 ${savedCount} 条事件节点；${saved.warnings.length} 条情绪地标待补`
                     );
                 } else {
                     finishProgressTask(
                         progressId,
-                        `🗂️ 已写入 ${saved.saved?.length || 0} 条事件节点 ✓`
+                        `🗂️ 已确认并写入 ${savedCount} 条事件节点 ✓`
                     );
                 }
                 progressId = null;
