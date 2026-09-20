@@ -3108,13 +3108,22 @@
             const bar =
                 document.getElementById('status-bar');
 
+            if (progressHideTimer) {
+                clearTimeout(progressHideTimer);
+                progressHideTimer = null;
+            }
+
             bar.textContent = msg;
             bar.classList.add('show');
 
-            setTimeout(
-                () => bar.classList.remove('show'),
-                duration
-            );
+            progressHideTimer = setTimeout(() => {
+                progressHideTimer = null;
+                if (activeProgressTasks.size > 0) {
+                    renderProgressTasks();
+                } else {
+                    bar.classList.remove('show');
+                }
+            }, duration);
 
             recordActivityLog(msg);
         }
@@ -7273,6 +7282,8 @@
                         role: message.role,
                         content: String(version.content || '').replace(/⟦[^⟧]*⟧\s*/g, ''),
                         timestamp: version.timestamp || message.timestamp || '',
+                        client_message_id: message.client_message_id || '',
+                        request_id: message.request_id || '',
                     };
                 })
                 .filter(message => {
@@ -7343,6 +7354,9 @@
                         related_memory_ids: Array.isArray(item.related_memory_ids) ? item.related_memory_ids : [],
                         source_message_ids: Array.isArray(item.source_message_ids) ? item.source_message_ids : [],
                         source_seqs: Array.isArray(item.source_seqs) ? item.source_seqs : [],
+                        _sourceMessageIdsInput: Array.isArray(item.source_message_ids)
+                            ? item.source_message_ids.join(', ')
+                            : '',
                         star_emotions: Array.isArray(item.star_emotions) ? item.star_emotions : [],
                         moon_emotions: Array.isArray(item.moon_emotions) ? item.moon_emotions : [],
                         star_impressions: Array.isArray(item.star_impressions) ? item.star_impressions : [],
@@ -7615,9 +7629,17 @@
 
                         const source = document.createElement('div');
                         source.textContent = candidate.source_seqs.length
-                            ? '来源消息：' + candidate.source_seqs.map(seq => '#' + seq).join('、')
-                            : '来源消息：未指定';
+                            ? '模型引用序号：' + candidate.source_seqs.map(seq => '#' + seq).join('、')
+                            : '模型引用序号：未指定';
                         source.style.cssText = 'font-size:11px;color:var(--text2);';
+
+                        const sourceIdsInput = styleInput(document.createElement('textarea'));
+                        sourceIdsInput.rows = 2;
+                        sourceIdsInput.value = candidate._sourceMessageIdsInput || '';
+                        sourceIdsInput.placeholder = '真实 chat_messages.id，逗号或换行分隔；可留空';
+                        sourceIdsInput.oninput = () => {
+                            candidate._sourceMessageIdsInput = sourceIdsInput.value;
+                        };
 
                         card.appendChild(cardHead);
                         card.appendChild(routeRow);
@@ -7630,6 +7652,7 @@
                         card.appendChild(makeTagGroup(candidate, 'star_impressions', '星语印象', EVENT_IMPRESSION_OPTIONS));
                         card.appendChild(makeTagGroup(candidate, 'moon_impressions', '听月印象', EVENT_IMPRESSION_OPTIONS));
                         card.appendChild(source);
+                        card.appendChild(makeField('关联消息 ID', sourceIdsInput));
                         list.appendChild(card);
                     });
                 }
@@ -7639,6 +7662,7 @@
                         action: 'create', event_id: null, title: '', summary: '', content: '',
                         occurred_at: date + 'T12:00:00+08:00', _occurredInput: date + 'T12:00',
                         related_memory_ids: [], _relatedInput: '', source_message_ids: [], source_seqs: [],
+                        _sourceMessageIdsInput: '',
                         star_emotions: [], moon_emotions: [], star_impressions: [], moon_impressions: [],
                     });
                     renderCandidates();
@@ -7679,7 +7703,12 @@
                                 .split(/[，,\s]+/)
                                 .map(value => Number(value))
                                 .filter(value => Number.isInteger(value) && value > 0),
-                            source_message_ids: candidate.source_message_ids,
+                            source_message_ids: [...new Set(
+                                String(candidate._sourceMessageIdsInput || '')
+                                    .split(/[，,\s]+/)
+                                    .map(value => value.trim())
+                                    .filter(Boolean)
+                            )],
                             star_emotions: candidate.star_emotions,
                             moon_emotions: candidate.moon_emotions,
                             star_impressions: candidate.star_impressions,
